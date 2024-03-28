@@ -38,16 +38,6 @@ function deepCloneWithStyles(document, styles = DEFAULT_SUPPORTED_STYLES) {
   return clone;
 }
 
-function removeExtension(pathname) {
-  const extension = pathname.split('.').pop();
-  return pathname.replace(`.${extension}`, '');
-}
-
-function getPath(url) {
-  const { pathname } = new URL(url);
-  return removeExtension(pathname);
-}
-
 async function loadComponents(config) {
   const components = {};
   if (config.githubUrl) {
@@ -81,14 +71,6 @@ async function loadComponents(config) {
     components.filters = JSON.parse(componentFilters);
   }
   return components;
-}
-
-async function webImporterHtml2Xml(url, doc, cfg, params) {
-  const out = await WebImporter.html2jcr(url, doc, cfg, params);
-  const xml = out?.jcr;
-  const path = getPath(url);
-  const filename = path.split('/').pop();
-  return { xml, path, filename };
 }
 
 export default class PollImporter {
@@ -183,18 +165,6 @@ export default class PollImporter {
     return true;
   }
 
-  async addXmlToResults(results, url, documentClone, params) {
-    const components = await loadComponents(this.config);
-    const out = await webImporterHtml2Xml(url, documentClone, this.projectTransform, {
-      components, ...params,
-    });
-    const xmlResults = Array.isArray(out) ? out : [out];
-    results.forEach((result, idx) => {
-      result.xml = xmlResults[idx].xml;
-      result.filename = xmlResults[idx].filename;
-    });
-  }
-
   async transform() {
     this.running = true;
     const {
@@ -222,15 +192,18 @@ export default class PollImporter {
           result.filename = `${path}.docx`;
         });
       } else {
-        const out = await WebImporter.html2md(
+        const components = await loadComponents(this.config);
+        const out = await WebImporter.html2jcr(
           url,
           documentClone,
           this.projectTransform,
-          params,
+          {
+            components,
+            ...params,
+          },
         );
         results = Array.isArray(out) ? out : [out];
       }
-      await this.addXmlToResults(results, url, documentClone, params);
 
       this.listeners.forEach((listener) => {
         listener({

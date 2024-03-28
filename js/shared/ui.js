@@ -10,7 +10,13 @@
  * governing permissions and limitations under the License.
  */
 
-const toggleLoadingButton = (button) => {
+export const PARENT_SELECTOR = '.import';
+
+export const config = {};
+
+export const getContentFrame = () => document.querySelector(`${PARENT_SELECTOR} iframe`);
+
+export const toggleLoadingButton = (button) => {
   let circle = button.querySelector('sp-progress-circle');
   if (circle) {
     circle.remove();
@@ -21,9 +27,4 @@ const toggleLoadingButton = (button) => {
 
     button.prepend(circle);
   }
-};
-
-export {
-  // eslint-disable-next-line import/prefer-default-export
-  toggleLoadingButton,
 };
