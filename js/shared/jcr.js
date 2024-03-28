@@ -120,16 +120,16 @@ const getAsset = (fileReference, pagePath) => {
   asset.url = getAssetURL(fileReference, pagePath);
   if (asset.url) {
     asset.jcrPath = getJcrAssetPath(asset.url.pathname);
-    asset.jcrFileReference = `${asset.jcrPath}${asset.url.search}${asset.url.hash}`;
+    asset.processedFileRef = `${asset.jcrPath}${asset.url.search}${asset.url.hash}`;
   } else {
-    asset.jcrFileReference = fileReference;
+    asset.processedFileRef = fileReference;
   }
   return asset;
 };
 
-export const getJcrFileReference = (fileReference, pagePath) => {
+export const getProcessedFileRef = (fileReference, pagePath) => {
   const asset = getAsset(fileReference, pagePath);
-  return asset.jcrFileReference;
+  return asset.processedFileRef;
 };
 
 const addAsset = async (asset, dirHandle, prefix, zip) => {
@@ -151,8 +151,8 @@ const addAsset = async (asset, dirHandle, prefix, zip) => {
 };
 
 const addPage = async (page, dirHandle, prefix, zip) => {
-  zip.file(page.contentXmlPath, page.adaptedXml);
-  await saveFile(dirHandle, `${prefix}/${page.contentXmlPath}`, page.adaptedXml);
+  zip.file(page.contentXmlPath, page.processedXml);
+  await saveFile(dirHandle, `${prefix}/${page.contentXmlPath}`, page.processedXml);
 };
 
 const getResourcePaths = (resources) => resources.map((resource) => resource.jcrPath);
@@ -195,25 +195,25 @@ const getPropertiesXml = (dirHandle, prefix, zip, pages, packageName) => {
 };
 
 // Updates the asset references in the JCR XML
-export const updateJcr = (xml, pagePath) => {
+export const getProcessedJcr = (xml, pagePath) => {
   const parser = new DOMParser();
-  const doc = parser.parseFromString(xml, 'application/xml');
+  const doc = parser.parseFromString(xml, 'text/xml');
   const assets = doc.querySelectorAll('[fileReference]');
   for (let i = 0; i < assets.length; i += 1) {
     const asset = assets[i];
     const fileReference = asset.getAttribute('fileReference');
-    const jcrFileReference = getJcrFileReference(fileReference, pagePath);
-    asset.setAttribute('fileReference', jcrFileReference);
+    const processedFileRef = getProcessedFileRef(fileReference, pagePath);
+    asset.setAttribute('fileReference', processedFileRef);
   }
   const serializer = new XMLSerializer();
   return serializer.serializeToString(doc);
 };
 
-const getJcrPages = (pages) => pages.map((page) => {
+export const getJcrPages = (pages) => pages.map((page) => {
   const pageObj = {};
   pageObj.path = page.path;
-  pageObj.originalXml = page.data;
-  pageObj.adaptedXml = updateJcr(page.data, page.path);
+  pageObj.sourceXml = page.data;
+  pageObj.processedXml = getProcessedJcr(page.data, page.path);
   pageObj.jcrPath = getJcrPagePath(page.path);
   pageObj.contentXmlPath = `jcr_root${pageObj.jcrPath}/.content.xml`;
   return pageObj;
@@ -225,7 +225,7 @@ const getJcrAssets = (pages) => {
   for (let i = 0; i < jcrPages.length; i += 1) {
     const page = jcrPages[i];
     const parser = new DOMParser();
-    const doc = parser.parseFromString(page.originalXml, 'application/xml');
+    const doc = parser.parseFromString(page.sourceXml, 'text/xml');
     const images = doc.querySelectorAll('[fileReference]');
     for (let j = 0; j < images.length; j += 1) {
       const image = images[j];

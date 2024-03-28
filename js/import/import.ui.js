@@ -21,7 +21,7 @@ import {
   getContentFrame,
   toggleLoadingButton,
 } from '../shared/ui.js';
-import { createJcrPackage, updateJcr } from '../shared/jcr.js';
+import { createJcrPackage, getProcessedJcr } from '../shared/jcr.js';
 
 const CONFIG_PARENT_SELECTOR = `${PARENT_SELECTOR} form`;
 
@@ -100,8 +100,8 @@ const loadResult = ({
   }
 
   if (jcr) {
-    const updatedJcr = updateJcr(jcr, path);
-    ui.jcrEditor.setValue(html_beautify(updatedJcr.replaceAll(/\s+/g, ' '), {
+    const processedJcr = getProcessedJcr(jcr, path);
+    ui.jcrEditor.setValue(html_beautify(processedJcr.replaceAll(/\s+/g, ' '), {
       indent_size: '2',
     }));
   }
