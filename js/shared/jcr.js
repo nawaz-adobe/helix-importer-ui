@@ -12,6 +12,10 @@
 /* global JSZip */
 import { saveFile } from './filesystem.js';
 
+// cache for pages and assets
+let jcrPages;
+let jcrAssets;
+
 const getSiteName = (projectUrl) => {
   const u = new URL(projectUrl);
   return u.pathname.split('/')[2];
@@ -204,32 +208,39 @@ export const getProcessedJcr = (xml, pagePath, pageUrl, projectUrl) => {
   return serializer.serializeToString(doc);
 };
 
-export const getJcrPages = (pages, projectUrl) => pages.map((page) => {
-  const pageObj = {};
-  pageObj.path = page.path;
-  pageObj.sourceXml = page.data;
-  pageObj.processedXml = getProcessedJcr(page.data, page.path, page.url, projectUrl);
-  pageObj.jcrPath = getJcrPagePath(page.path, projectUrl);
-  pageObj.contentXmlPath = `jcr_root${pageObj.jcrPath}/.content.xml`;
-  pageObj.url = page.url;
-  return pageObj;
-});
+export const getJcrPages = (pages, projectUrl) => {
+  if (!jcrPages) {
+    jcrPages = pages.map((page) => {
+      const pageObj = {};
+      pageObj.path = page.path;
+      pageObj.sourceXml = page.data;
+      pageObj.processedXml = getProcessedJcr(page.data, page.path, page.url, projectUrl);
+      pageObj.jcrPath = getJcrPagePath(page.path, projectUrl);
+      pageObj.contentXmlPath = `jcr_root${pageObj.jcrPath}/.content.xml`;
+      pageObj.url = page.url;
+      return pageObj;
+    });
+  }
+  return jcrPages;
+};
 
 const getJcrAssets = (pages, projectUrl) => {
-  const jcrAssets = [];
-  const jcrPages = getJcrPages(pages, projectUrl);
-  for (let i = 0; i < jcrPages.length; i += 1) {
-    const page = jcrPages[i];
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(page.sourceXml, 'text/xml');
-    const images = doc.querySelectorAll('[fileReference]');
-    for (let j = 0; j < images.length; j += 1) {
-      const image = images[j];
-      const fileReference = image.getAttribute('fileReference');
-      const asset = getAsset(fileReference, page.path, page.url, projectUrl);
-      // skip if the link points to an AEM asset
-      if (asset.url && !asset.url.pathname.startsWith('/content/dam/')) {
-        jcrAssets.push(asset);
+  if (!jcrAssets) {
+    jcrAssets = [];
+    jcrPages = getJcrPages(pages, projectUrl);
+    for (let i = 0; i < jcrPages.length; i += 1) {
+      const page = jcrPages[i];
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(page.sourceXml, 'text/xml');
+      const images = doc.querySelectorAll('[fileReference]');
+      for (let j = 0; j < images.length; j += 1) {
+        const image = images[j];
+        const fileReference = image.getAttribute('fileReference');
+        const asset = getAsset(fileReference, page.path, page.url, projectUrl);
+        // skip if the link points to an AEM asset
+        if (asset.url && !asset.url.pathname.startsWith('/content/dam/')) {
+          jcrAssets.push(asset);
+        }
       }
     }
   }
@@ -237,8 +248,8 @@ const getJcrAssets = (pages, projectUrl) => {
 };
 
 const getJcrPaths = (pages, projectUrl) => {
-  const jcrPages = getJcrPages(pages, projectUrl);
-  const jcrAssets = getJcrAssets(pages, projectUrl);
+  jcrPages = getJcrPages(pages, projectUrl);
+  jcrAssets = getJcrAssets(pages, projectUrl);
   const jcrPaths = [];
   jcrPaths.push(...getResourcePaths(jcrPages));
   jcrPaths.push(...getResourcePaths(jcrAssets));
@@ -265,7 +276,7 @@ export const createJcrPackage = async (dirHandle, pages, projectUrl) => {
   const prefix = 'jcr';
 
   // add the pages
-  const jcrPages = getJcrPages(pages, projectUrl);
+  jcrPages = getJcrPages(pages, projectUrl);
   for (let i = 0; i < jcrPages.length; i += 1) {
     const page = jcrPages[i];
     // eslint-disable-next-line no-await-in-loop
@@ -273,7 +284,7 @@ export const createJcrPackage = async (dirHandle, pages, projectUrl) => {
   }
 
   // add the assets
-  const jcrAssets = getJcrAssets(pages, projectUrl);
+  jcrAssets = getJcrAssets(pages, projectUrl);
   for (let i = 0; i < jcrAssets.length; i += 1) {
     const asset = jcrAssets[i];
     // eslint-disable-next-line no-await-in-loop
