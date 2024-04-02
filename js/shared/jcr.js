@@ -12,16 +12,13 @@
 /* global JSZip */
 import { saveFile } from './filesystem.js';
 
-import { config, getContentFrame } from './ui.js';
-
-const getSiteName = () => {
-  const gitHubUrl = config.fields['github-project-url'];
-  const u = new URL(gitHubUrl);
+const getSiteName = (projectUrl) => {
+  const u = new URL(projectUrl);
   return u.pathname.split('/')[2];
 };
 
-const getPackageName = (pages) => {
-  const siteName = getSiteName();
+const getPackageName = (pages, projectUrl) => {
+  const siteName = getSiteName(projectUrl);
   if (pages.length === 1) {
     const pageName = pages[0].path.split('/').pop();
     return `${siteName}_${pageName}`;
@@ -29,16 +26,16 @@ const getPackageName = (pages) => {
   return siteName;
 };
 
-const getJcrPagePath = (path) => {
-  const siteName = getSiteName();
+const getJcrPagePath = (path, projectUrl) => {
+  const siteName = getSiteName(projectUrl);
   if (!path.startsWith('/content/')) {
     return `/content/${siteName}${path}`;
   }
   return path;
 };
 
-const getJcrAssetPath = (path) => {
-  const siteName = getSiteName();
+const getJcrAssetPath = (path, projectUrl) => {
+  const siteName = getSiteName(projectUrl);
   if (!path.startsWith('/content/dam/')) {
     return `/content/dam/${siteName}${path}`;
   }
@@ -76,7 +73,7 @@ const getAssetXml = (mimeType) => `<?xml version="1.0" encoding="UTF-8"?>
         </jcr:content>
     </jcr:root>`;
 
-const getAssetURL = (fileReference, pagePath) => {
+const getAssetURL = (fileReference, pagePath, pageUrl) => {
   if (!fileReference || fileReference === '') {
     return null;
   }
@@ -88,9 +85,7 @@ const getAssetURL = (fileReference, pagePath) => {
   }
   // externalize if the fileReference is absolute
   if (fileReference.startsWith('/')) {
-    const frame = getContentFrame();
-    const { originalURL } = frame.dataset;
-    const host = new URL(originalURL).origin;
+    const host = new URL(pageUrl).origin;
     return new URL(`${host}${fileReference}`);
   }
   // external fileReference
@@ -114,12 +109,12 @@ const fetchAssetData = async (asset) => {
   }
 };
 
-const getAsset = (fileReference, pagePath) => {
+const getAsset = (fileReference, pagePath, pageUrl, projectUrl) => {
   const asset = {};
   asset.fileReference = fileReference;
-  asset.url = getAssetURL(fileReference, pagePath);
+  asset.url = getAssetURL(fileReference, pagePath, pageUrl);
   if (asset.url) {
-    asset.jcrPath = getJcrAssetPath(asset.url.pathname);
+    asset.jcrPath = getJcrAssetPath(asset.url.pathname, projectUrl);
     asset.processedFileRef = `${asset.jcrPath}${asset.url.search}${asset.url.hash}`;
   } else {
     asset.processedFileRef = fileReference;
@@ -127,8 +122,8 @@ const getAsset = (fileReference, pagePath) => {
   return asset;
 };
 
-export const getProcessedFileRef = (fileReference, pagePath) => {
-  const asset = getAsset(fileReference, pagePath);
+export const getProcessedFileRef = (fileReference, pagePath, pageUrl, projectUrl) => {
+  const asset = getAsset(fileReference, pagePath, pageUrl, projectUrl);
   return asset.processedFileRef;
 };
 
@@ -195,33 +190,34 @@ const getPropertiesXml = (dirHandle, prefix, zip, pages, packageName) => {
 };
 
 // Updates the asset references in the JCR XML
-export const getProcessedJcr = (xml, pagePath) => {
+export const getProcessedJcr = (xml, pagePath, pageUrl, projectUrl) => {
   const parser = new DOMParser();
   const doc = parser.parseFromString(xml, 'text/xml');
   const assets = doc.querySelectorAll('[fileReference]');
   for (let i = 0; i < assets.length; i += 1) {
     const asset = assets[i];
     const fileReference = asset.getAttribute('fileReference');
-    const processedFileRef = getProcessedFileRef(fileReference, pagePath);
+    const processedFileRef = getProcessedFileRef(fileReference, pagePath, pageUrl, projectUrl);
     asset.setAttribute('fileReference', processedFileRef);
   }
   const serializer = new XMLSerializer();
   return serializer.serializeToString(doc);
 };
 
-export const getJcrPages = (pages) => pages.map((page) => {
+export const getJcrPages = (pages, projectUrl) => pages.map((page) => {
   const pageObj = {};
   pageObj.path = page.path;
   pageObj.sourceXml = page.data;
-  pageObj.processedXml = getProcessedJcr(page.data, page.path);
-  pageObj.jcrPath = getJcrPagePath(page.path);
+  pageObj.processedXml = getProcessedJcr(page.data, page.path, page.url, projectUrl);
+  pageObj.jcrPath = getJcrPagePath(page.path, projectUrl);
   pageObj.contentXmlPath = `jcr_root${pageObj.jcrPath}/.content.xml`;
+  pageObj.url = page.url;
   return pageObj;
 });
 
-const getJcrAssets = (pages) => {
+const getJcrAssets = (pages, projectUrl) => {
   const jcrAssets = [];
-  const jcrPages = getJcrPages(pages);
+  const jcrPages = getJcrPages(pages, projectUrl);
   for (let i = 0; i < jcrPages.length; i += 1) {
     const page = jcrPages[i];
     const parser = new DOMParser();
@@ -230,7 +226,7 @@ const getJcrAssets = (pages) => {
     for (let j = 0; j < images.length; j += 1) {
       const image = images[j];
       const fileReference = image.getAttribute('fileReference');
-      const asset = getAsset(fileReference, page.path);
+      const asset = getAsset(fileReference, page.path, page.url, projectUrl);
       // skip if the link points to an AEM asset
       if (asset.url && !asset.url.pathname.startsWith('/content/dam/')) {
         jcrAssets.push(asset);
@@ -240,17 +236,17 @@ const getJcrAssets = (pages) => {
   return jcrAssets;
 };
 
-const getJcrPaths = (pages) => {
-  const jcrPages = getJcrPages(pages);
-  const jcrAssets = getJcrAssets(pages);
+const getJcrPaths = (pages, projectUrl) => {
+  const jcrPages = getJcrPages(pages, projectUrl);
+  const jcrAssets = getJcrAssets(pages, projectUrl);
   const jcrPaths = [];
   jcrPaths.push(...getResourcePaths(jcrPages));
   jcrPaths.push(...getResourcePaths(jcrAssets));
   return jcrPaths;
 };
 
-const addFilterXml = async (pages, dirHandle, prefix, zip) => {
-  const jcrPaths = getJcrPaths(pages);
+const addFilterXml = async (pages, projectUrl, dirHandle, prefix, zip) => {
+  const jcrPaths = getJcrPaths(pages, projectUrl);
   const { filterXmlPath, filterXml } = getFilterXml(dirHandle, prefix, zip, jcrPaths);
   zip.file(filterXmlPath, filterXml);
   await saveFile(dirHandle, `${prefix}/${filterXmlPath}`, filterXml);
@@ -262,14 +258,14 @@ const addPropertiesXml = async (dirHandle, prefix, zip, pages, packageName) => {
   await saveFile(dirHandle, `${prefix}/${propXmlPath}`, propXml);
 };
 
-export const createJcrPackage = async (dirHandle, pages) => {
+export const createJcrPackage = async (dirHandle, pages, projectUrl) => {
   if (pages.length === 0) return;
-  const packageName = getPackageName(pages);
+  const packageName = getPackageName(pages, projectUrl);
   const zip = new JSZip();
   const prefix = 'jcr';
 
   // add the pages
-  const jcrPages = getJcrPages(pages);
+  const jcrPages = getJcrPages(pages, projectUrl);
   for (let i = 0; i < jcrPages.length; i += 1) {
     const page = jcrPages[i];
     // eslint-disable-next-line no-await-in-loop
@@ -277,7 +273,7 @@ export const createJcrPackage = async (dirHandle, pages) => {
   }
 
   // add the assets
-  const jcrAssets = getJcrAssets(pages);
+  const jcrAssets = getJcrAssets(pages, projectUrl);
   for (let i = 0; i < jcrAssets.length; i += 1) {
     const asset = jcrAssets[i];
     // eslint-disable-next-line no-await-in-loop
@@ -285,7 +281,7 @@ export const createJcrPackage = async (dirHandle, pages) => {
   }
 
   // add the filter.xml file
-  await addFilterXml(pages, dirHandle, prefix, zip);
+  await addFilterXml(pages, projectUrl, dirHandle, prefix, zip);
 
   // add the properties.xml file
   await addPropertiesXml(dirHandle, prefix, zip, pages, packageName);

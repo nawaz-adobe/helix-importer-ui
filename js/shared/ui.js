@@ -10,12 +10,7 @@
  * governing permissions and limitations under the License.
  */
 
-export const PARENT_SELECTOR = '.import';
-
-export const config = {};
-
-export const getContentFrame = () => document.querySelector(`${PARENT_SELECTOR} iframe`);
-
+// eslint-disable-next-line import/prefer-default-export
 export const toggleLoadingButton = (button) => {
   let circle = button.querySelector('sp-progress-circle');
   if (circle) {

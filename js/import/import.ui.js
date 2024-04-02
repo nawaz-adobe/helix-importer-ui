@@ -15,14 +15,10 @@ import { getDirectoryHandle, saveFile } from '../shared/filesystem.js';
 import { asyncForEach } from '../shared/utils.js';
 import PollImporter from '../shared/pollimporter.js';
 import alert from '../shared/alert.js';
-import {
-  PARENT_SELECTOR,
-  config,
-  getContentFrame,
-  toggleLoadingButton,
-} from '../shared/ui.js';
+import { toggleLoadingButton } from '../shared/ui.js';
 import { createJcrPackage, getProcessedJcr } from '../shared/jcr.js';
 
+const PARENT_SELECTOR = '.import';
 const CONFIG_PARENT_SELECTOR = `${PARENT_SELECTOR} form`;
 
 const PREVIEW_CONTAINER = document.querySelector(`${PARENT_SELECTOR} .page-preview`);
@@ -52,11 +48,14 @@ const IMPORT_FILE_PICKER_CONTAINER = document.getElementById('import-file-picker
 const REPORT_FILENAME = 'import-report.xlsx';
 
 const ui = {};
+const config = {};
 const importStatus = {};
 
 let isSaveLocal = false;
 let dirHandle = null;
 let jcrPages = [];
+
+const getContentFrame = () => document.querySelector(`${PARENT_SELECTOR} iframe`);
 
 const setupUI = () => {
   ui.transformedEditor = CodeMirror.fromTextArea(TRANSFORMED_HTML_TEXTAREA, {
@@ -92,6 +91,7 @@ const loadResult = ({
   html: outputHTML,
   jcr,
   path,
+  url,
 }) => {
   if (outputHTML) {
     ui.transformedEditor.setValue(html_beautify(outputHTML.replaceAll(/\s+/g, ' '), {
@@ -100,7 +100,8 @@ const loadResult = ({
   }
 
   if (jcr) {
-    const processedJcr = getProcessedJcr(jcr, path);
+    const githubUrl = config.fields['github-project-url'];
+    const processedJcr = getProcessedJcr(jcr, path, url, githubUrl);
     ui.jcrEditor.setValue(html_beautify(processedJcr.replaceAll(/\s+/g, ' '), {
       indent_size: '2',
     }));
@@ -262,7 +263,7 @@ const postSuccessfulStep = async (results, originalURL) => {
       if (config.fields['import-local-docx'] && docx) files.push({ type: 'docx', filename, data: docx });
       if (config.fields['import-local-html'] && html) files.push({ type: 'html', filename: `${path}.html`, data: `<html><head></head>${html}</html>` });
       if (config.fields['import-local-md'] && md) files.push({ type: 'md', filename: `${path}.md`, data: md });
-      if (config.fields['import-local-jcr'] && jcr) jcrPages.push({ type: 'jcr', path, data: jcr });
+      if (config.fields['import-local-jcr'] && jcr) jcrPages.push({ type: 'jcr', path, data: jcr, url: originalURL });
 
       files.forEach((file) => {
         try {
@@ -637,7 +638,8 @@ const attachListeners = () => {
       } else {
         const frame = getContentFrame();
         frame.removeEventListener('transformation-complete', processNext);
-        await createJcrPackage(dirHandle, jcrPages);
+        const githubUrl = config.fields['github-project-url'];
+        await createJcrPackage(dirHandle, jcrPages, githubUrl);
         DOWNLOAD_IMPORT_REPORT_BUTTON.classList.remove('hidden');
         enableProcessButtons();
         toggleLoadingButton(IMPORT_BUTTON);

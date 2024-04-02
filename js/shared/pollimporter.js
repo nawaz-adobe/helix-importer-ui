@@ -202,6 +202,7 @@ export default class PollImporter {
             ...params,
           },
         );
+        out.url = params.originalURL;
         results = Array.isArray(out) ? out : [out];
       }
 
