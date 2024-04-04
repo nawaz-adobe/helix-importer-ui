@@ -16,6 +16,11 @@ import { saveFile } from './filesystem.js';
 let jcrPages;
 let jcrAssets;
 
+const init = () => {
+  jcrPages = null;
+  jcrAssets = null;
+};
+
 const getSiteName = (projectUrl) => {
   const u = new URL(projectUrl);
   return u.pathname.split('/')[2];
@@ -156,7 +161,7 @@ const addPage = async (page, dirHandle, prefix, zip) => {
 
 const getResourcePaths = (resources) => resources.map((resource) => resource.jcrPath);
 
-const getFilterXml = (dirHandle, prefix, zip, jcrPaths) => {
+const getFilterXml = (jcrPaths) => {
   const filters = jcrPaths.reduce((acc, path) => `${acc}<filter root='${path}'/>\n`, '');
   const filterXml = `<?xml version='1.0' encoding='UTF-8'?>
     <workspaceFilter version='1.0'>
@@ -166,7 +171,7 @@ const getFilterXml = (dirHandle, prefix, zip, jcrPaths) => {
   return { filterXmlPath, filterXml };
 };
 
-const getPropertiesXml = (dirHandle, prefix, zip, pages, packageName) => {
+const getPropertiesXml = (packageName) => {
   const author = 'anonymous';
   const now = new Date().toISOString();
   const propXml = `<?xml version='1.0' encoding='UTF-8'?>
@@ -195,6 +200,7 @@ const getPropertiesXml = (dirHandle, prefix, zip, pages, packageName) => {
 
 // Updates the asset references in the JCR XML
 export const getProcessedJcr = (xml, pagePath, pageUrl, projectUrl) => {
+  init();
   const parser = new DOMParser();
   const doc = parser.parseFromString(xml, 'text/xml');
   const assets = doc.querySelectorAll('[fileReference]');
@@ -224,7 +230,7 @@ export const getJcrPages = (pages, projectUrl) => {
   return jcrPages;
 };
 
-const getJcrAssets = (pages, projectUrl) => {
+export const getJcrAssets = (pages, projectUrl) => {
   if (!jcrAssets) {
     jcrAssets = [];
     jcrPages = getJcrPages(pages, projectUrl);
@@ -247,7 +253,7 @@ const getJcrAssets = (pages, projectUrl) => {
   return jcrAssets;
 };
 
-const getJcrPaths = (pages, projectUrl) => {
+export const getJcrPaths = (pages, projectUrl) => {
   jcrPages = getJcrPages(pages, projectUrl);
   jcrAssets = getJcrAssets(pages, projectUrl);
   const jcrPaths = [];
@@ -258,19 +264,20 @@ const getJcrPaths = (pages, projectUrl) => {
 
 const addFilterXml = async (pages, projectUrl, dirHandle, prefix, zip) => {
   const jcrPaths = getJcrPaths(pages, projectUrl);
-  const { filterXmlPath, filterXml } = getFilterXml(dirHandle, prefix, zip, jcrPaths);
+  const { filterXmlPath, filterXml } = getFilterXml(jcrPaths);
   zip.file(filterXmlPath, filterXml);
   await saveFile(dirHandle, `${prefix}/${filterXmlPath}`, filterXml);
 };
 
 const addPropertiesXml = async (dirHandle, prefix, zip, pages, packageName) => {
-  const { propXmlPath, propXml } = getPropertiesXml(dirHandle, prefix, zip, pages, packageName);
+  const { propXmlPath, propXml } = getPropertiesXml(packageName);
   zip.file(propXmlPath, propXml);
   await saveFile(dirHandle, `${prefix}/${propXmlPath}`, propXml);
 };
 
 export const createJcrPackage = async (dirHandle, pages, projectUrl) => {
   if (pages.length === 0) return;
+  init();
   const packageName = getPackageName(pages, projectUrl);
   const zip = new JSZip();
   const prefix = 'jcr';
