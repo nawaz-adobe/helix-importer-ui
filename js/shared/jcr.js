@@ -21,6 +21,41 @@ const init = () => {
   jcrAssets = null;
 };
 
+export const loadComponents = async (projectUrl) => {
+  const components = {};
+  if (projectUrl) {
+    const [
+      componentModels, componentsDefinition, componentFilters,
+    ] = await Promise.all([
+      fetch(`${projectUrl}/component-models.json`).then((res) => {
+        if (!res.ok) {
+          throw new Error(`Failed to fetch component-models.json: ${res.status}`);
+        } else {
+          return res.text();
+        }
+      }),
+      fetch(`${projectUrl}/component-definition.json`).then((res) => {
+        if (!res.ok) {
+          throw new Error(`Failed to fetch component-definition.json: ${res.status}`);
+        } else {
+          return res.text();
+        }
+      }),
+      fetch(`${projectUrl}/component-filters.json`).then((res) => {
+        if (!res.ok) {
+          throw new Error(`Failed to fetch component-filters.json: ${res.status}`);
+        } else {
+          return res.text();
+        }
+      }),
+    ]);
+    components.componentModels = JSON.parse(componentModels);
+    components.componentDefinition = JSON.parse(componentsDefinition);
+    components.filters = JSON.parse(componentFilters);
+  }
+  return components;
+};
+
 const getSiteName = (projectUrl) => {
   const u = new URL(projectUrl);
   return u.pathname.split('/')[2];

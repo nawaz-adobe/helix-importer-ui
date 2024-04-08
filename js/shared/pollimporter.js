@@ -10,6 +10,7 @@
  * governing permissions and limitations under the License.
  */
 /* global WebImporter */
+import { loadComponents } from './jcr.js';
 
 const DEFAULT_SUPPORTED_STYLES = [{ name: 'background-image', exclude: /none/g }];
 
@@ -36,41 +37,6 @@ function deepCloneWithStyles(document, styles = DEFAULT_SUPPORTED_STYLES) {
   };
   applyStyles(document.body, clone.body);
   return clone;
-}
-
-async function loadComponents(config) {
-  const components = {};
-  if (config.githubUrl) {
-    const [
-      componentModels, componentsDefinition, componentFilters,
-    ] = await Promise.all([
-      fetch(`${config.githubUrl}/component-models.json`).then((res) => {
-        if (!res.ok) {
-          throw new Error(`Failed to fetch component-models.json: ${res.status}`);
-        } else {
-          return res.text();
-        }
-      }),
-      fetch(`${config.githubUrl}/component-definition.json`).then((res) => {
-        if (!res.ok) {
-          throw new Error(`Failed to fetch component-definition.json: ${res.status}`);
-        } else {
-          return res.text();
-        }
-      }),
-      fetch(`${config.githubUrl}/component-filters.json`).then((res) => {
-        if (!res.ok) {
-          throw new Error(`Failed to fetch component-filters.json: ${res.status}`);
-        } else {
-          return res.text();
-        }
-      }),
-    ]);
-    components.componentModels = JSON.parse(componentModels);
-    components.componentDefinition = JSON.parse(componentsDefinition);
-    components.filters = JSON.parse(componentFilters);
-  }
-  return components;
 }
 
 export default class PollImporter {
@@ -192,7 +158,7 @@ export default class PollImporter {
           result.filename = `${path}.docx`;
         });
       } else {
-        const components = await loadComponents(this.config);
+        const components = await loadComponents(this.config.githubUrl);
         const out = await WebImporter.html2jcr(
           url,
           documentClone,
