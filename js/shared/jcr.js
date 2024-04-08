@@ -26,7 +26,7 @@ const getSiteName = (projectUrl) => {
   return u.pathname.split('/')[2];
 };
 
-const getPackageName = (pages, projectUrl) => {
+export const getPackageName = (pages, projectUrl) => {
   const siteName = getSiteName(projectUrl);
   if (pages.length === 1) {
     const pageName = pages[0].path.split('/').pop();
@@ -200,7 +200,6 @@ const getPropertiesXml = (packageName) => {
 
 // Updates the asset references in the JCR XML
 export const getProcessedJcr = (xml, pagePath, pageUrl, projectUrl) => {
-  init();
   const parser = new DOMParser();
   const doc = parser.parseFromString(xml, 'text/xml');
   const assets = doc.querySelectorAll('[fileReference]');
