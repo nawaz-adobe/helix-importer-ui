@@ -35,20 +35,46 @@ const testData = {
       images: [
         {
           description: 'relative path to the page',
-          fileReference: './a/b/media.png?name1=value1&name2=value2',
+          fileReference: './a/b/media_0.png?param1=value1&param2=value2',
           expected: {
-            jcrPath: '/content/dam/repo/1/2/a/b/media.png',
-            processedFileRef: '/content/dam/repo/1/2/a/b/media.png?name1=value1&name2=value2',
-            url: new URL('https://www.brand.com/1/2/a/b/media.png?name1=value1&name2=value2'),
+            add: true,
+            fileReference: './a/b/media_0.png?param1=value1&param2=value2',
+            jcrPath: '/content/dam/repo/1/2/a/b/media_0_param1value1_param2value2.png',
+            processedFileRef: '/content/dam/repo/1/2/a/b/media_0_param1value1_param2value2.png',
+            url: new URL('https://www.brand.com/1/2/a/b/media_0.png?param1=value1&param2=value2'),
           },
         },
         {
           description: 'absolute path',
-          fileReference: '/a/b/media.png?name1=value1&name2=value2',
+          fileReference: '/a/b/media_1.png',
           expected: {
-            jcrPath: '/content/dam/repo/a/b/media.png',
-            processedFileRef: '/content/dam/repo/a/b/media.png?name1=value1&name2=value2',
-            url: new URL('https://www.brand.com/a/b/media.png?name1=value1&name2=value2'),
+            add: true,
+            fileReference: '/a/b/media_1.png',
+            jcrPath: '/content/dam/repo/a/b/media_1.png',
+            processedFileRef: '/content/dam/repo/a/b/media_1.png',
+            url: new URL('https://www.brand.com/a/b/media_1.png'),
+          },
+        },
+        {
+          description: 'absolute path, duplicate',
+          fileReference: '/a/b/media_1.png',
+          expected: {
+            add: false,
+            fileReference: '/a/b/media_1.png',
+            jcrPath: '/content/dam/repo/a/b/media_1.png',
+            processedFileRef: '/content/dam/repo/a/b/media_1.png',
+            url: new URL('https://www.brand.com/a/b/media_1.png'),
+          },
+        },
+        {
+          description: 'absolute path, no extension',
+          fileReference: '/a/b/media_1a',
+          expected: {
+            add: true,
+            fileReference: '/a/b/media_1a',
+            jcrPath: '/content/dam/repo/a/b/media_1a',
+            processedFileRef: '/content/dam/repo/a/b/media_1a',
+            url: new URL('https://www.brand.com/a/b/media_1a'),
           },
         },
       ],
@@ -62,20 +88,35 @@ const testData = {
       images: [
         {
           description: 'full URL',
-          fileReference: 'https://www.another.com/a/b/media.png?name1=value1&name2=value2',
+          fileReference: 'https://www.another.com/a/b/media_2.png?param1=value1&param2=value2',
           expected: {
-            jcrPath: null,
-            processedFileRef: 'https://www.another.com/a/b/media.png?name1=value1&name2=value2',
-            url: null,
+            add: false,
+            fileReference: 'https://www.another.com/a/b/media_2.png?param1=value1&param2=value2',
+            jcrPath: undefined,
+            processedFileRef: 'https://www.another.com/a/b/media_2.png?param1=value1&param2=value2',
+            url: new URL('https://www.another.com/a/b/media_2.png?param1=value1&param2=value2'),
           },
         },
         {
-          description: 'below /content/dam',
-          fileReference: '/content/dam/a/b/media.png?name1=value1&name2=value2',
+          description: 'below /content/dam, below the same site name',
+          fileReference: '/content/dam/repo/a/b/media_3.png?param1=value1&param2=value2',
           expected: {
-            jcrPath: null,
-            processedFileRef: '/content/dam/a/b/media.png?name1=value1&name2=value2',
-            url: null,
+            add: false,
+            fileReference: '/content/dam/repo/a/b/media_3.png?param1=value1&param2=value2',
+            jcrPath: '/content/dam/repo/a/b/media_3.png',
+            processedFileRef: '/content/dam/repo/a/b/media_3.png?param1=value1&param2=value2',
+            url: new URL('https://www.brand.com/content/dam/repo/a/b/media_3.png?param1=value1&param2=value2'),
+          },
+        },
+        {
+          description: 'below /content/dam, below another site name',
+          fileReference: '/content/dam/site2/a/b/media_4.png?param1=value1',
+          expected: {
+            add: false,
+            fileReference: '/content/dam/site2/a/b/media_4.png?param1=value1',
+            jcrPath: '/content/dam/site2/a/b/media_4.png',
+            processedFileRef: '/content/dam/site2/a/b/media_4.png?param1=value1',
+            url: new URL('https://www.brand.com/content/dam/site2/a/b/media_4.png?param1=value1'),
           },
         },
       ],
@@ -85,14 +126,20 @@ const testData = {
       },
     },
   ],
+  expectedJcrPaths: [
+    '/content/repo/1/2/page',
+    '/content/repo/3/4/page',
+    '/content/dam/repo/1/2/a/b/media_0_param1value1_param2value2.png',
+    '/content/dam/repo/a/b/media_1.png',
+    '/content/dam/repo/a/b/media_1a',
+  ],
 };
 
 const pageXml = (fileRef) => `<jcr:root xmlns:jcr="http://www.jcp.org/jcr/1.0" xmlns:nt="http://www.jcp.org/jcr/nt/1.0" xmlns:cq="http://www.day.com/jcr/cq/1.0" xmlns:sling="http://sling.apache.org/jcr/sling/1.0" jcr:primaryType="cq:Page">
       <jcr:content cq:template="/libs/core/franklin/templates/page" jcr:primaryType="cq:PageContent" jcr:title="Sites Franklin Example" sling:resourceType="core/franklin/components/page/v1/page">
         <root jcr:primaryType="nt:unstructured" sling:resourceType="core/franklin/components/root/v1/root">
           <section sling:resourceType="core/franklin/components/section/v1/section" jcr:primaryType="nt:unstructured">
-            <image_0 sling:resourceType="core/franklin/components/image/v1/image" jcr:primaryType="nt:unstructured" alt="" fileReference="${fileRef[0].replace('&', '&amp;')}"/>
-            <image_1 sling:resourceType="core/franklin/components/image/v1/image" jcr:primaryType="nt:unstructured" alt="" fileReference="${fileRef[1].replace('&', '&amp;')}"/>
+            ${fileRef.map((ref, i) => `<image_${i} sling:resourceType="core/franklin/components/image/v1/image" jcr:primaryType="nt:unstructured" alt="" fileReference="${ref.replace('&', '&amp;')}"/>`).join('')}
             <button_0 sling:resourceType="core/franklin/components/button/v1/button" jcr:primaryType="nt:unstructured" type="primary" href="/acrobat/free-trial-download.html" text="7-day free trial"/>
           </section>
         </root>
@@ -112,8 +159,7 @@ describe('JCR Importer', () => {
 
   it('should return the correct JCR processed fileReference', () => {
     const testGetProcessedFileRef = (projectUrl, pageUrl, fileReference, expected) => {
-      const pagePath = new URL(pageUrl).pathname;
-      const result = getProcessedFileRef(fileReference, pagePath, pageUrl, projectUrl);
+      const result = getProcessedFileRef(fileReference, pageUrl, projectUrl);
       assert.equal(result, expected, `Processed file reference is not as expected for ${fileReference}`);
     };
 
@@ -136,28 +182,21 @@ describe('JCR Importer', () => {
       contentXmlPath: page.expected.contentXmlPath,
       url: page.url,
     }));
-    assert.deepEqual(getJcrPages(testPages, testData.projectUrl), expectedPages, 'JCR pages are not as expected');
+    const actualPages = getJcrPages(testPages, testData.projectUrl);
+    assert.deepEqual(actualPages, expectedPages, 'JCR pages are not as expected');
   });
 
   it('should return the correct JCR assets', () => {
     const expectedAssets = testData.pages
       .flatMap((page) => page.images)
-      .map((image) => ({
-        fileReference: image.fileReference,
-        jcrPath: image.expected.jcrPath,
-        processedFileRef: image.expected.processedFileRef,
-        url: image.expected.url,
-      }))
-      .filter((image) => image.jcrPath !== null);
-    assert.deepEqual(getJcrAssets(testPages, testData.projectUrl), expectedAssets, 'JCR assets are not as expected');
+      .map((image) => (image.expected));
+    const actualAssets = getJcrAssets(testPages, testData.projectUrl);
+    assert.deepEqual(actualAssets, expectedAssets, 'JCR assets are not as expected');
   });
 
   it('should return the correct JCR paths', () => {
-    const expectedPaths = [
-      ...testData.pages.map((page) => page.expected.jcrPath),
-      ...testData.pages.flatMap((page) => page.images
-        .map((image) => image.expected.jcrPath).filter((path) => path !== null)),
-    ];
-    assert.deepEqual(getJcrPaths(testPages, testData.projectUrl), expectedPaths, 'JCR paths are not as expected');
+    const expectedPaths = testData.expectedJcrPaths;
+    const actualPaths = getJcrPaths(testPages, testData.projectUrl);
+    assert.deepEqual(actualPaths, expectedPaths, 'JCR paths are not as expected');
   });
 });

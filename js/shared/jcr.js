@@ -13,12 +13,12 @@
 import { saveFile } from './filesystem.js';
 
 // cache for pages and assets
-let jcrPages;
-let jcrAssets;
+let jcrPages = [];
+let jcrAssets = [];
 
 const init = () => {
-  jcrPages = null;
-  jcrAssets = null;
+  jcrPages = [];
+  jcrAssets = [];
 };
 
 export const loadComponents = async (projectUrl) => {
@@ -78,12 +78,17 @@ const getJcrPagePath = (path, projectUrl) => {
   return path;
 };
 
-const getJcrAssetPath = (path, projectUrl) => {
+const getJcrAssetPath = (assetUrl, projectUrl) => {
   const siteName = getSiteName(projectUrl);
-  if (!path.startsWith('/content/dam/')) {
-    return `/content/dam/${siteName}${path}`;
+  // add the query parameters to the path as _name1value1_name2value2
+  const params = assetUrl.searchParams;
+  const extension = (assetUrl.pathname.includes('.')) ? `.${assetUrl.pathname.split('.').pop()}` : '';
+  const path = assetUrl.pathname.replace(extension, '');
+  if (path.startsWith('/content/dam/')) {
+    return `${path}${extension}`;
   }
-  return path;
+  const suffix = Array.from(params.keys()).map((key) => `_${key}${params.get(key)}`).join('');
+  return `/content/dam/${siteName}${path}${suffix}${extension}`;
 };
 
 const getMimeType = (url, res) => {
@@ -117,25 +122,6 @@ const getAssetXml = (mimeType) => `<?xml version="1.0" encoding="UTF-8"?>
         </jcr:content>
     </jcr:root>`;
 
-const getAssetURL = (fileReference, pagePath, pageUrl) => {
-  if (!fileReference || fileReference === '') {
-    return null;
-  }
-  // if the fileReference starts with './', use the page path to make it an absolute path
-  if (fileReference.startsWith('./')) {
-    const parentPath = pagePath.substring(0, pagePath.lastIndexOf('/'));
-    // eslint-disable-next-line no-param-reassign
-    fileReference = `${parentPath}${fileReference.substring(1)}`;
-  }
-  // externalize if the fileReference is absolute
-  if (fileReference.startsWith('/')) {
-    const host = new URL(pageUrl).origin;
-    return new URL(`${host}${fileReference}`);
-  }
-  // external fileReference
-  return null;
-};
-
 // Fetches the asset blob and mime type
 const fetchAssetData = async (asset) => {
   if (asset.url) {
@@ -153,25 +139,61 @@ const fetchAssetData = async (asset) => {
   }
 };
 
-const getAsset = (fileReference, pagePath, pageUrl, projectUrl) => {
-  const asset = {};
-  asset.fileReference = fileReference;
-  asset.url = getAssetURL(fileReference, pagePath, pageUrl);
-  if (asset.url) {
-    asset.jcrPath = getJcrAssetPath(asset.url.pathname, projectUrl);
-    asset.processedFileRef = `${asset.jcrPath}${asset.url.search}${asset.url.hash}`;
-  } else {
-    asset.processedFileRef = fileReference;
+const isDuplicate = (jcrPath) => jcrAssets.find((a) => a.jcrPath === jcrPath);
+
+const getAsset = (fileReference, pageUrl, projectUrl) => {
+  if (!fileReference || fileReference === '') {
+    return null;
   }
-  return asset;
+  const host = new URL(pageUrl).origin;
+  let jcrPath;
+  let processedFileRef;
+  let url;
+  let add = true;
+  const pagePath = new URL(pageUrl).pathname;
+  if (fileReference.startsWith('./')) {
+    // relative fileReference: use the page path to make it an absolute path
+    const parentPath = pagePath.substring(0, pagePath.lastIndexOf('/'));
+    // eslint-disable-next-line no-param-reassign
+    url = new URL(`${host}${parentPath}${fileReference.substring(1)}`);
+    jcrPath = getJcrAssetPath(url, projectUrl);
+    processedFileRef = jcrPath;
+    add = !isDuplicate(jcrPath);
+  } else if (fileReference.startsWith('/content/dam/')) {
+    url = new URL(`${host}${fileReference}`);
+    jcrPath = getJcrAssetPath(url, projectUrl);
+    processedFileRef = fileReference;
+    add = false;
+  } else if (fileReference.startsWith('/')) {
+    // absolute fileReference
+    url = new URL(`${host}${fileReference}`);
+    jcrPath = getJcrAssetPath(url, projectUrl);
+    processedFileRef = jcrPath;
+    add = !isDuplicate(jcrPath);
+  } else {
+    // external fileReference
+    url = new URL(fileReference);
+    processedFileRef = fileReference;
+    add = false;
+  }
+  return {
+    fileReference,
+    processedFileRef,
+    jcrPath,
+    url,
+    add,
+  };
 };
 
-export const getProcessedFileRef = (fileReference, pagePath, pageUrl, projectUrl) => {
-  const asset = getAsset(fileReference, pagePath, pageUrl, projectUrl);
+export const getProcessedFileRef = (fileReference, pageUrl, projectUrl) => {
+  const asset = getAsset(fileReference, pageUrl, projectUrl);
   return asset.processedFileRef;
 };
 
 const addAsset = async (asset, dirHandle, prefix, zip) => {
+  if (!asset.add) {
+    return;
+  }
   // get asset blob and mime type
   await fetchAssetData(asset);
 
@@ -194,7 +216,14 @@ const addPage = async (page, dirHandle, prefix, zip) => {
   await saveFile(dirHandle, `${prefix}/${page.contentXmlPath}`, page.processedXml);
 };
 
-const getResourcePaths = (resources) => resources.map((resource) => resource.jcrPath);
+const getResourcePaths = (resources, isAsset) => resources
+  .map((resource) => {
+    if ((isAsset && resource.add && resource.jcrPath) || (!isAsset && resource.jcrPath)) {
+      return resource.jcrPath;
+    }
+    return null;
+  })
+  .filter((path) => path !== null);
 
 const getFilterXml = (jcrPaths) => {
   const filters = jcrPaths.reduce((acc, path) => `${acc}<filter root='${path}'/>\n`, '');
@@ -234,14 +263,14 @@ const getPropertiesXml = (packageName) => {
 };
 
 // Updates the asset references in the JCR XML
-export const getProcessedJcr = (xml, pagePath, pageUrl, projectUrl) => {
+export const getProcessedJcr = (xml, pageUrl, projectUrl) => {
   const parser = new DOMParser();
   const doc = parser.parseFromString(xml, 'text/xml');
   const assets = doc.querySelectorAll('[fileReference]');
   for (let i = 0; i < assets.length; i += 1) {
     const asset = assets[i];
     const fileReference = asset.getAttribute('fileReference');
-    const processedFileRef = getProcessedFileRef(fileReference, pagePath, pageUrl, projectUrl);
+    const processedFileRef = getProcessedFileRef(fileReference, pageUrl, projectUrl);
     asset.setAttribute('fileReference', processedFileRef);
   }
   const serializer = new XMLSerializer();
@@ -249,24 +278,21 @@ export const getProcessedJcr = (xml, pagePath, pageUrl, projectUrl) => {
 };
 
 export const getJcrPages = (pages, projectUrl) => {
-  if (!jcrPages) {
-    jcrPages = pages.map((page) => {
-      const pageObj = {};
-      pageObj.path = page.path;
-      pageObj.sourceXml = page.data;
-      pageObj.processedXml = getProcessedJcr(page.data, page.path, page.url, projectUrl);
-      pageObj.jcrPath = getJcrPagePath(page.path, projectUrl);
-      pageObj.contentXmlPath = `jcr_root${pageObj.jcrPath}/.content.xml`;
-      pageObj.url = page.url;
-      return pageObj;
-    });
+  if (jcrPages.length === 0) {
+    jcrPages = pages.map((page) => ({
+      path: page.path,
+      sourceXml: page.data,
+      processedXml: getProcessedJcr(page.data, page.url, projectUrl),
+      jcrPath: getJcrPagePath(page.path, projectUrl),
+      contentXmlPath: `jcr_root${getJcrPagePath(page.path, projectUrl)}/.content.xml`,
+      url: page.url,
+    }));
   }
   return jcrPages;
 };
 
 export const getJcrAssets = (pages, projectUrl) => {
-  if (!jcrAssets) {
-    jcrAssets = [];
+  if (jcrAssets.length === 0) {
     jcrPages = getJcrPages(pages, projectUrl);
     for (let i = 0; i < jcrPages.length; i += 1) {
       const page = jcrPages[i];
@@ -276,11 +302,8 @@ export const getJcrAssets = (pages, projectUrl) => {
       for (let j = 0; j < images.length; j += 1) {
         const image = images[j];
         const fileReference = image.getAttribute('fileReference');
-        const asset = getAsset(fileReference, page.path, page.url, projectUrl);
-        // skip if the link points to an AEM asset
-        if (asset.url && !asset.url.pathname.startsWith('/content/dam/')) {
-          jcrAssets.push(asset);
-        }
+        const asset = getAsset(fileReference, page.url, projectUrl);
+        jcrAssets.push(asset);
       }
     }
   }
@@ -291,8 +314,8 @@ export const getJcrPaths = (pages, projectUrl) => {
   jcrPages = getJcrPages(pages, projectUrl);
   jcrAssets = getJcrAssets(pages, projectUrl);
   const jcrPaths = [];
-  jcrPaths.push(...getResourcePaths(jcrPages));
-  jcrPaths.push(...getResourcePaths(jcrAssets));
+  jcrPaths.push(...getResourcePaths(jcrPages, false));
+  jcrPaths.push(...getResourcePaths(jcrAssets, true));
   return jcrPaths;
 };
 
