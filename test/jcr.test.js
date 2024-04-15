@@ -12,6 +12,7 @@
 
 /* eslint-env mocha */
 // eslint-disable-next-line import/no-extraneous-dependencies
+import fs from 'fs';
 import { JSDOM } from 'jsdom';
 import assert from 'assert';
 import {
@@ -25,6 +26,29 @@ import {
 const dom = new JSDOM();
 global.DOMParser = dom.window.DOMParser;
 global.XMLSerializer = dom.window.XMLSerializer;
+
+const mockFetch = (url, imagePath, contentType) => {
+// Save the original fetch function
+  const originalFetch = global.fetch;
+  // Read the image file as a Buffer
+  const imageBuffer = fs.readFileSync(imagePath);
+  // Override the global fetch function
+  global.fetch = async (input, init) => {
+    if (input === url) {
+      // If the input matches the URL we want to mock, return a mock response
+      return {
+        ok: true,
+        status: 200,
+        headers: {
+          get: (header) => (header === 'Content-Type' ? contentType : null),
+        },
+        blob: async () => imageBuffer,
+      };
+    }
+    // Otherwise, call the original fetch function
+    return originalFetch(input, init);
+  };
+};
 
 // test cases and expected results
 const testData = {
@@ -87,14 +111,15 @@ const testData = {
       url: 'https://www.brand.com/3/4/page.html',
       images: [
         {
-          description: 'full URL',
-          fileReference: 'https://www.another.com/a/b/media_2.png?param1=value1&param2=value2',
+          description: 'external URL',
+          fileReference: 'https://www.mysite.com/a/b/media_2.png?param1=value1&param2=value2',
           expected: {
             add: false,
-            fileReference: 'https://www.another.com/a/b/media_2.png?param1=value1&param2=value2',
+            fileReference: 'https://www.mysite.com/a/b/media_2.png?param1=value1&param2=value2',
             jcrPath: undefined,
-            processedFileRef: 'https://www.another.com/a/b/media_2.png?param1=value1&param2=value2',
-            url: new URL('https://www.another.com/a/b/media_2.png?param1=value1&param2=value2'),
+            processedFileRef: 'https://www.mysite.com/a/b/media_2.png?param1=value1&param2=value2',
+            url: new URL('https://www.mysite.com/a/b/media_2.png?param1=value1&param2=value2'),
+            mimeType: 'image/png',
           },
         },
         {
@@ -135,11 +160,18 @@ const testData = {
   ],
 };
 
-const pageXml = (fileRef) => `<jcr:root xmlns:jcr="http://www.jcp.org/jcr/1.0" xmlns:nt="http://www.jcp.org/jcr/nt/1.0" xmlns:cq="http://www.day.com/jcr/cq/1.0" xmlns:sling="http://sling.apache.org/jcr/sling/1.0" jcr:primaryType="cq:Page">
+const fileReferenceMimeTypeXml = (mimeType) => {
+  if (mimeType) {
+    return ` fileReferenceMimeType="${mimeType}"`;
+  }
+  return '';
+};
+
+const pageXml = (images) => `<jcr:root xmlns:jcr="http://www.jcp.org/jcr/1.0" xmlns:nt="http://www.jcp.org/jcr/nt/1.0" xmlns:cq="http://www.day.com/jcr/cq/1.0" xmlns:sling="http://sling.apache.org/jcr/sling/1.0" jcr:primaryType="cq:Page">
       <jcr:content cq:template="/libs/core/franklin/templates/page" jcr:primaryType="cq:PageContent" jcr:title="Sites Franklin Example" sling:resourceType="core/franklin/components/page/v1/page">
         <root jcr:primaryType="nt:unstructured" sling:resourceType="core/franklin/components/root/v1/root">
           <section sling:resourceType="core/franklin/components/section/v1/section" jcr:primaryType="nt:unstructured">
-            ${fileRef.map((ref, i) => `<image_${i} sling:resourceType="core/franklin/components/image/v1/image" jcr:primaryType="nt:unstructured" alt="" fileReference="${ref.replace('&', '&amp;')}"/>`).join('')}
+            ${images.map((image, i) => `<image_${i} sling:resourceType="core/franklin/components/image/v1/image" jcr:primaryType="nt:unstructured" alt="" fileReference="${image.fileReference.replace('&', '&amp;')}"${fileReferenceMimeTypeXml(image.mimeType)}/>`).join('')}
             <button_0 sling:resourceType="core/franklin/components/button/v1/button" jcr:primaryType="nt:unstructured" type="primary" href="/acrobat/free-trial-download.html" text="7-day free trial"/>
           </section>
         </root>
@@ -148,11 +180,16 @@ const pageXml = (fileRef) => `<jcr:root xmlns:jcr="http://www.jcp.org/jcr/1.0" x
 
 const testPages = testData.pages.map((page) => ({
   path: new URL(page.url).pathname.split('.html')[0],
-  data: pageXml(page.images.map((image) => image.fileReference)),
+  data: pageXml(page.images.map((image) => ({
+    fileReference: image.fileReference,
+  }))),
   url: page.url,
 }));
 
 describe('JCR Importer', () => {
+  before(() => {
+    mockFetch('https://www.mysite.com/a/b/media_2.png?param1=value1&param2=value2', 'test/resources/adobe-logo.png', 'image/png');
+  });
   it('should return the correct JCR package name', () => {
     assert.deepEqual(getPackageName(testPages, testData.projectUrl), 'repo', 'Package name is not as expected');
   });
@@ -173,30 +210,36 @@ describe('JCR Importer', () => {
     });
   });
 
-  it('should return the correct JCR pages', () => {
+  it('should return the correct JCR pages', async () => {
     const expectedPages = testData.pages.map((page) => ({
       path: new URL(page.url).pathname.split('.html')[0],
-      sourceXml: pageXml(page.images.map((image) => image.fileReference)),
-      processedXml: pageXml(page.images.map((image) => image.expected.processedFileRef)),
+      sourceXml: pageXml(page.images.map((image) => ({
+        fileReference: image.fileReference,
+      }))),
+      processedXml: pageXml(page.images.map((image) => ({
+        fileReference: image.expected.processedFileRef,
+        mimeType: image.expected.mimeType,
+      }))),
       jcrPath: page.expected.jcrPath,
       contentXmlPath: page.expected.contentXmlPath,
       url: page.url,
     }));
-    const actualPages = getJcrPages(testPages, testData.projectUrl);
+    const actualPages = await getJcrPages(testPages, testData.projectUrl);
     assert.deepEqual(actualPages, expectedPages, 'JCR pages are not as expected');
   });
 
-  it('should return the correct JCR assets', () => {
+  it('should return the correct JCR assets', async () => {
     const expectedAssets = testData.pages
       .flatMap((page) => page.images)
-      .map((image) => (image.expected));
-    const actualAssets = getJcrAssets(testPages, testData.projectUrl);
+      .map((image) => (image.expected))
+      .filter((image) => image.add);
+    const actualAssets = await getJcrAssets(testPages, testData.projectUrl);
     assert.deepEqual(actualAssets, expectedAssets, 'JCR assets are not as expected');
   });
 
-  it('should return the correct JCR paths', () => {
+  it('should return the correct JCR paths', async () => {
     const expectedPaths = testData.expectedJcrPaths;
-    const actualPaths = getJcrPaths(testPages, testData.projectUrl);
+    const actualPaths = await getJcrPaths(testPages, testData.projectUrl);
     assert.deepEqual(actualPaths, expectedPaths, 'JCR paths are not as expected');
   });
 });

@@ -100,9 +100,7 @@ const loadResult = ({
   }
 
   if (jcr) {
-    const githubUrl = config.fields['github-project-url'];
-    const processedJcr = getProcessedJcr(jcr, url, githubUrl);
-    ui.jcrEditor.setValue(html_beautify(processedJcr.replaceAll(/\s+/g, ' '), {
+    ui.jcrEditor.setValue(html_beautify(jcr.replaceAll(/\s+/g, ' '), {
       indent_size: '2',
     }));
   }

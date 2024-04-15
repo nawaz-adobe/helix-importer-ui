@@ -125,21 +125,22 @@ const getAssetXml = (mimeType) => `<?xml version="1.0" encoding="UTF-8"?>
 // Fetches the asset blob and mime type
 const fetchAssetData = async (asset) => {
   if (asset.url) {
-    // TODO: remove the query and hash from the fileReference before fetching the image?
-    const { blob, mimeType } = await fetch(asset.url.href).then(async (res) => {
-      if (!res.ok) {
-        // eslint-disable-next-line no-console
-        console.error(`Failed to fetch image: ${res.status}`);
-        return { blob: null, mimeType: null };
-      }
-      return { blob: await res.blob(), mimeType: getMimeType(asset.url, res) };
-    });
+    const { blob, mimeType } = await fetch(asset.url.href)
+      .then(async (res) => {
+        if (!res.ok) {
+          // eslint-disable-next-line no-console
+          console.error(`Failed to fetch image: ${res.status}`);
+          return { blob: null, mimeType: null };
+        }
+        return { blob: await res.blob(), mimeType: getMimeType(asset.url, res) };
+      })
+      .catch((error) => {
+        console.error(`Fetch failed with error: ${error}`);
+      });
     asset.blob = blob;
     asset.mimeType = mimeType;
   }
 };
-
-const isDuplicate = (jcrPath) => jcrAssets.find((a) => a.jcrPath === jcrPath);
 
 const getAsset = (fileReference, pageUrl, projectUrl) => {
   if (!fileReference || fileReference === '') {
@@ -147,34 +148,31 @@ const getAsset = (fileReference, pageUrl, projectUrl) => {
   }
   const host = new URL(pageUrl).origin;
   let jcrPath;
-  let processedFileRef;
+  let processedFileRef = fileReference;
   let url;
-  let add = true;
+  let add = false;
   const pagePath = new URL(pageUrl).pathname;
-  if (fileReference.startsWith('./')) {
+  if (fileReference.startsWith('http')) {
+    // external fileReference
+    url = new URL(fileReference);
+  } else if (fileReference.startsWith('/content/dam/')) {
+    // DAM fileReference
+    url = new URL(`${host}${fileReference}`);
+    jcrPath = getJcrAssetPath(url, projectUrl);
+  } else if (fileReference.startsWith('/')) {
+    // absolute fileReference
+    url = new URL(`${host}${fileReference}`);
+    jcrPath = getJcrAssetPath(url, projectUrl);
+    processedFileRef = jcrPath;
+    add = true;
+  } else if (fileReference.startsWith('./')) {
     // relative fileReference: use the page path to make it an absolute path
     const parentPath = pagePath.substring(0, pagePath.lastIndexOf('/'));
     // eslint-disable-next-line no-param-reassign
     url = new URL(`${host}${parentPath}${fileReference.substring(1)}`);
     jcrPath = getJcrAssetPath(url, projectUrl);
     processedFileRef = jcrPath;
-    add = !isDuplicate(jcrPath);
-  } else if (fileReference.startsWith('/content/dam/')) {
-    url = new URL(`${host}${fileReference}`);
-    jcrPath = getJcrAssetPath(url, projectUrl);
-    processedFileRef = fileReference;
-    add = false;
-  } else if (fileReference.startsWith('/')) {
-    // absolute fileReference
-    url = new URL(`${host}${fileReference}`);
-    jcrPath = getJcrAssetPath(url, projectUrl);
-    processedFileRef = jcrPath;
-    add = !isDuplicate(jcrPath);
-  } else {
-    // external fileReference
-    url = new URL(fileReference);
-    processedFileRef = fileReference;
-    add = false;
+    add = true;
   }
   return {
     fileReference,
@@ -191,9 +189,6 @@ export const getProcessedFileRef = (fileReference, pageUrl, projectUrl) => {
 };
 
 const addAsset = async (asset, dirHandle, prefix, zip) => {
-  if (!asset.add) {
-    return;
-  }
   // get asset blob and mime type
   await fetchAssetData(asset);
 
@@ -263,37 +258,46 @@ const getPropertiesXml = (packageName) => {
 };
 
 // Updates the asset references in the JCR XML
-export const getProcessedJcr = (xml, pageUrl, projectUrl) => {
+export const getProcessedJcr = async (xml, pageUrl, projectUrl) => {
   const parser = new DOMParser();
   const doc = parser.parseFromString(xml, 'text/xml');
-  const assets = doc.querySelectorAll('[fileReference]');
-  for (let i = 0; i < assets.length; i += 1) {
-    const asset = assets[i];
-    const fileReference = asset.getAttribute('fileReference');
+  const images = doc.querySelectorAll('[fileReference]');
+  for (let i = 0; i < images.length; i += 1) {
+    const image = images[i];
+    const fileReference = image.getAttribute('fileReference');
     const processedFileRef = getProcessedFileRef(fileReference, pageUrl, projectUrl);
-    asset.setAttribute('fileReference', processedFileRef);
+    if (fileReference.startsWith('http')) {
+      // External fileReference: add the asset mime type to the page XML
+      const asset = getAsset(fileReference, pageUrl, projectUrl);
+      // eslint-disable-next-line no-await-in-loop
+      await fetchAssetData(asset);
+      if (asset.mimeType && asset.mimeType !== '') {
+        image.setAttribute('fileReferenceMimeType', asset.mimeType);
+      }
+    }
+    image.setAttribute('fileReference', processedFileRef);
   }
   const serializer = new XMLSerializer();
   return serializer.serializeToString(doc);
 };
 
-export const getJcrPages = (pages, projectUrl) => {
+export const getJcrPages = async (pages, projectUrl) => {
   if (jcrPages.length === 0) {
-    jcrPages = pages.map((page) => ({
+    jcrPages = Promise.all(pages.map(async (page) => ({
       path: page.path,
       sourceXml: page.data,
-      processedXml: getProcessedJcr(page.data, page.url, projectUrl),
+      processedXml: await getProcessedJcr(page.data, page.url, projectUrl),
       jcrPath: getJcrPagePath(page.path, projectUrl),
       contentXmlPath: `jcr_root${getJcrPagePath(page.path, projectUrl)}/.content.xml`,
       url: page.url,
-    }));
+    })));
   }
   return jcrPages;
 };
 
-export const getJcrAssets = (pages, projectUrl) => {
+export const getJcrAssets = async (pages, projectUrl) => {
   if (jcrAssets.length === 0) {
-    jcrPages = getJcrPages(pages, projectUrl);
+    jcrPages = await getJcrPages(pages, projectUrl);
     for (let i = 0; i < jcrPages.length; i += 1) {
       const page = jcrPages[i];
       const parser = new DOMParser();
@@ -303,16 +307,19 @@ export const getJcrAssets = (pages, projectUrl) => {
         const image = images[j];
         const fileReference = image.getAttribute('fileReference');
         const asset = getAsset(fileReference, page.url, projectUrl);
-        jcrAssets.push(asset);
+        // add if not a duplicate
+        if (asset && asset.add && !jcrAssets.find((a) => a.jcrPath === asset.jcrPath)) {
+          jcrAssets.push(asset);
+        }
       }
     }
   }
   return jcrAssets;
 };
 
-export const getJcrPaths = (pages, projectUrl) => {
-  jcrPages = getJcrPages(pages, projectUrl);
-  jcrAssets = getJcrAssets(pages, projectUrl);
+export const getJcrPaths = async (pages, projectUrl) => {
+  jcrPages = await getJcrPages(pages, projectUrl);
+  jcrAssets = await getJcrAssets(pages, projectUrl);
   const jcrPaths = [];
   jcrPaths.push(...getResourcePaths(jcrPages, false));
   jcrPaths.push(...getResourcePaths(jcrAssets, true));
@@ -320,7 +327,7 @@ export const getJcrPaths = (pages, projectUrl) => {
 };
 
 const addFilterXml = async (pages, projectUrl, dirHandle, prefix, zip) => {
-  const jcrPaths = getJcrPaths(pages, projectUrl);
+  const jcrPaths = await getJcrPaths(pages, projectUrl);
   const { filterXmlPath, filterXml } = getFilterXml(jcrPaths);
   zip.file(filterXmlPath, filterXml);
   await saveFile(dirHandle, `${prefix}/${filterXmlPath}`, filterXml);
@@ -340,7 +347,7 @@ export const createJcrPackage = async (dirHandle, pages, projectUrl) => {
   const prefix = 'jcr';
 
   // add the pages
-  jcrPages = getJcrPages(pages, projectUrl);
+  jcrPages = await getJcrPages(pages, projectUrl);
   for (let i = 0; i < jcrPages.length; i += 1) {
     const page = jcrPages[i];
     // eslint-disable-next-line no-await-in-loop
@@ -348,7 +355,7 @@ export const createJcrPackage = async (dirHandle, pages, projectUrl) => {
   }
 
   // add the assets
-  jcrAssets = getJcrAssets(pages, projectUrl);
+  jcrAssets = await getJcrAssets(pages, projectUrl);
   for (let i = 0; i < jcrAssets.length; i += 1) {
     const asset = jcrAssets[i];
     // eslint-disable-next-line no-await-in-loop
