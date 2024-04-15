@@ -91,11 +91,7 @@ const getJcrAssetPath = (assetUrl, projectUrl) => {
   return `/content/dam/${siteName}${path}${suffix}${extension}`;
 };
 
-const getMimeType = (url, res) => {
-  const contentType = res.headers.get('content-type');
-  if (contentType) {
-    return contentType;
-  }
+const getMimeTypeFromExtension = (extension) => {
   const mimeTypes = {
     html: 'text/html',
     css: 'text/css',
@@ -104,7 +100,6 @@ const getMimeType = (url, res) => {
     jpg: 'image/jpeg',
     gif: 'image/gif',
   };
-  const extension = url.pathname.split('.').pop();
   return mimeTypes[extension];
 };
 
@@ -132,13 +127,13 @@ const fetchAssetData = async (asset) => {
           console.error(`Failed to fetch image: ${res.status}`);
           return { blob: null, mimeType: null };
         }
-        return { blob: await res.blob(), mimeType: getMimeType(asset.url, res) };
+        return { blob: await res.blob(), mimeType: res.headers.get('content-type') };
       })
       .catch((error) => {
         console.error(`Fetch failed with error: ${error}`);
       });
     asset.blob = blob;
-    asset.mimeType = mimeType;
+    asset.mimeType = mimeType || getMimeTypeFromExtension(asset.url.pathname.split('.').pop());
   }
 };
 
@@ -155,6 +150,12 @@ const getAsset = (fileReference, pageUrl, projectUrl) => {
   if (fileReference.startsWith('http')) {
     // external fileReference
     url = new URL(fileReference);
+    if (url.origin === host) {
+      // the asset is hosted on the same server
+      jcrPath = getJcrAssetPath(url, projectUrl);
+      processedFileRef = jcrPath;
+      add = true;
+    }
   } else if (fileReference.startsWith('/content/dam/')) {
     // DAM fileReference
     url = new URL(`${host}${fileReference}`);
@@ -269,10 +270,12 @@ export const getProcessedJcr = async (xml, pageUrl, projectUrl) => {
     if (fileReference.startsWith('http')) {
       // External fileReference: add the asset mime type to the page XML
       const asset = getAsset(fileReference, pageUrl, projectUrl);
-      // eslint-disable-next-line no-await-in-loop
-      await fetchAssetData(asset);
-      if (asset.mimeType && asset.mimeType !== '') {
-        image.setAttribute('fileReferenceMimeType', asset.mimeType);
+      if (!asset.add) {
+        // eslint-disable-next-line no-await-in-loop
+        await fetchAssetData(asset);
+        if (asset.mimeType && asset.mimeType !== '') {
+          image.setAttribute('fileReferenceMimeType', asset.mimeType);
+        }
       }
     }
     image.setAttribute('fileReference', processedFileRef);

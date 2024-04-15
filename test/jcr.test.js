@@ -111,7 +111,7 @@ const testData = {
       url: 'https://www.brand.com/3/4/page.html',
       images: [
         {
-          description: 'external URL',
+          description: 'external URL, different domain than the page',
           fileReference: 'https://www.mysite.com/a/b/media_2.png?param1=value1&param2=value2',
           expected: {
             add: false,
@@ -120,6 +120,17 @@ const testData = {
             processedFileRef: 'https://www.mysite.com/a/b/media_2.png?param1=value1&param2=value2',
             url: new URL('https://www.mysite.com/a/b/media_2.png?param1=value1&param2=value2'),
             mimeType: 'image/png',
+          },
+        },
+        {
+          description: 'external URL, same domain as the page',
+          fileReference: 'https://www.brand.com/a/b/media_2.png?param1=value1&param2=value2',
+          expected: {
+            add: true,
+            fileReference: 'https://www.brand.com/a/b/media_2.png?param1=value1&param2=value2',
+            jcrPath: '/content/dam/repo/a/b/media_2_param1value1_param2value2.png',
+            processedFileRef: '/content/dam/repo/a/b/media_2_param1value1_param2value2.png',
+            url: new URL('https://www.brand.com/a/b/media_2.png?param1=value1&param2=value2'),
           },
         },
         {
@@ -157,6 +168,7 @@ const testData = {
     '/content/dam/repo/1/2/a/b/media_0_param1value1_param2value2.png',
     '/content/dam/repo/a/b/media_1.png',
     '/content/dam/repo/a/b/media_1a',
+    '/content/dam/repo/a/b/media_2_param1value1_param2value2.png',
   ],
 };
 
