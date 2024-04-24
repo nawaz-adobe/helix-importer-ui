@@ -137,10 +137,10 @@ const testData = {
           description: 'below /content/dam, below the same site name',
           fileReference: '/content/dam/repo/a/b/media_3.png?param1=value1&param2=value2',
           expected: {
-            add: false,
+            add: true,
             fileReference: '/content/dam/repo/a/b/media_3.png?param1=value1&param2=value2',
             jcrPath: '/content/dam/repo/a/b/media_3.png',
-            processedFileRef: '/content/dam/repo/a/b/media_3.png?param1=value1&param2=value2',
+            processedFileRef: '/content/dam/repo/a/b/media_3.png',
             url: new URL('https://www.brand.com/content/dam/repo/a/b/media_3.png?param1=value1&param2=value2'),
           },
         },
@@ -148,10 +148,10 @@ const testData = {
           description: 'below /content/dam, below another site name',
           fileReference: '/content/dam/site2/a/b/media_4.png?param1=value1',
           expected: {
-            add: false,
+            add: true,
             fileReference: '/content/dam/site2/a/b/media_4.png?param1=value1',
-            jcrPath: '/content/dam/site2/a/b/media_4.png',
-            processedFileRef: '/content/dam/site2/a/b/media_4.png?param1=value1',
+            jcrPath: '/content/dam/repo/a/b/media_4.png',
+            processedFileRef: '/content/dam/repo/a/b/media_4.png',
             url: new URL('https://www.brand.com/content/dam/site2/a/b/media_4.png?param1=value1'),
           },
         },
@@ -169,6 +169,8 @@ const testData = {
     '/content/dam/repo/a/b/media_1.png',
     '/content/dam/repo/a/b/media_1a',
     '/content/dam/repo/a/b/media_2_param1value1_param2value2.png',
+    '/content/dam/repo/a/b/media_3.png',
+    '/content/dam/repo/a/b/media_4.png',
   ],
 };
 

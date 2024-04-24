@@ -72,10 +72,13 @@ export const getPackageName = (pages, projectUrl) => {
 
 const getJcrPagePath = (path, projectUrl) => {
   const siteName = getSiteName(projectUrl);
-  if (!path.startsWith('/content/')) {
-    return `/content/${siteName}${path}`;
+  if (path.startsWith('/content/')) {
+    // replace the 2nd token with the site name
+    const tokens = path.split('/');
+    tokens.splice(2, 1, siteName);
+    return tokens.join('/');
   }
-  return path;
+  return `/content/${siteName}${path}`;
 };
 
 const getJcrAssetPath = (assetUrl, projectUrl) => {
@@ -85,7 +88,10 @@ const getJcrAssetPath = (assetUrl, projectUrl) => {
   const extension = (assetUrl.pathname.includes('.')) ? `.${assetUrl.pathname.split('.').pop()}` : '';
   const path = assetUrl.pathname.replace(extension, '');
   if (path.startsWith('/content/dam/')) {
-    return `${path}${extension}`;
+    // replace the 3rd token with the site name
+    const tokens = path.split('/');
+    tokens.splice(3, 1, siteName);
+    return `${tokens.join('/')}${extension}`;
   }
   const suffix = Array.from(params.keys()).map((key) => `_${key}${params.get(key)}`).join('');
   return `/content/dam/${siteName}${path}${suffix}${extension}`;
@@ -130,6 +136,7 @@ const fetchAssetData = async (asset) => {
         return { blob: await res.blob(), mimeType: res.headers.get('content-type') };
       })
       .catch((error) => {
+        // eslint-disable-next-line no-console
         console.error(`Fetch failed with error: ${error}`);
       });
     asset.blob = blob;
@@ -160,6 +167,8 @@ const getAsset = (fileReference, pageUrl, projectUrl) => {
     // DAM fileReference
     url = new URL(`${host}${fileReference}`);
     jcrPath = getJcrAssetPath(url, projectUrl);
+    processedFileRef = jcrPath;
+    add = true;
   } else if (fileReference.startsWith('/')) {
     // absolute fileReference
     url = new URL(`${host}${fileReference}`);

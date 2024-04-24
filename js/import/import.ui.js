@@ -16,7 +16,7 @@ import { asyncForEach } from '../shared/utils.js';
 import PollImporter from '../shared/pollimporter.js';
 import alert from '../shared/alert.js';
 import { toggleLoadingButton } from '../shared/ui.js';
-import { createJcrPackage, getProcessedJcr } from '../shared/jcr.js';
+import { createJcrPackage } from '../shared/jcr.js';
 
 const PARENT_SELECTOR = '.import';
 const CONFIG_PARENT_SELECTOR = `${PARENT_SELECTOR} form`;
@@ -90,8 +90,6 @@ const loadResult = ({
   md,
   html: outputHTML,
   jcr,
-  path,
-  url,
 }) => {
   if (outputHTML) {
     ui.transformedEditor.setValue(html_beautify(outputHTML.replaceAll(/\s+/g, ' '), {
@@ -261,7 +259,14 @@ const postSuccessfulStep = async (results, originalURL) => {
       if (config.fields['import-local-docx'] && docx) files.push({ type: 'docx', filename, data: docx });
       if (config.fields['import-local-html'] && html) files.push({ type: 'html', filename: `${path}.html`, data: `<html><head></head>${html}</html>` });
       if (config.fields['import-local-md'] && md) files.push({ type: 'md', filename: `${path}.md`, data: md });
-      if (config.fields['import-local-jcr'] && jcr) jcrPages.push({ type: 'jcr', path, data: jcr, url: originalURL });
+      if (config.fields['import-local-jcr'] && jcr) {
+        jcrPages.push({
+          type: 'jcr',
+          path,
+          data: jcr,
+          url: originalURL,
+        });
+      }
 
       files.forEach((file) => {
         try {
