@@ -256,10 +256,13 @@ const postSuccessfulStep = async (results, originalURL) => {
 
     if (isSaveLocal && dirHandle && (docx || html || md || jcr)) {
       const files = [];
-      if (config.fields['import-local-docx'] && docx) files.push({ type: 'docx', filename, data: docx });
-      if (config.fields['import-local-html'] && html) files.push({ type: 'html', filename: `${path}.html`, data: `<html><head></head>${html}</html>` });
-      if (config.fields['import-local-md'] && md) files.push({ type: 'md', filename: `${path}.md`, data: md });
-      if (config.fields['import-local-jcr'] && jcr) {
+      if (config.fields['import-local-docx'] && docx) {
+        files.push({ type: 'docx', filename, data: docx });
+      } else if (config.fields['import-local-html'] && html) {
+        files.push({ type: 'html', filename: `${path}.html`, data: `<html><head></head>${html}</html>` });
+      } else if (config.fields['import-local-md'] && md) {
+        files.push({ type: 'md', filename: `${path}.md`, data: md });
+      } else if (config.fields['import-local-jcr'] && jcr) {
         jcrPages.push({
           type: 'jcr',
           path,

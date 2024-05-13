@@ -1,3 +1,94 @@
+## [1.51.12](https://github.com/adobe/helix-importer-ui/compare/v1.51.11...v1.51.12) (2024-05-11)
+
+
+### Bug Fixes
+
+* **deps:** update external fixes ([#353](https://github.com/adobe/helix-importer-ui/issues/353)) ([92032fd](https://github.com/adobe/helix-importer-ui/commit/92032fd930de4b01797d00eeba9473110b7f01ad))
+
+## [1.51.11](https://github.com/adobe/helix-importer-ui/compare/v1.51.10...v1.51.11) (2024-04-28)
+
+
+### Bug Fixes
+
+* **deps:** update dependency @adobe/helix-importer to v3.3.8 ([#351](https://github.com/adobe/helix-importer-ui/issues/351)) ([0aa6c29](https://github.com/adobe/helix-importer-ui/commit/0aa6c29f242bfb0456bafb8f9eeb56813605cf8c))
+
+## [1.51.10](https://github.com/adobe/helix-importer-ui/compare/v1.51.9...v1.51.10) (2024-04-24)
+
+
+### Bug Fixes
+
+* **deps:** update dependency @adobe/helix-importer to v3.3.7 ([#349](https://github.com/adobe/helix-importer-ui/issues/349)) ([1b83418](https://github.com/adobe/helix-importer-ui/commit/1b83418578f5b0846e631fbbc552490406de8616))
+
+## [1.51.9](https://github.com/adobe/helix-importer-ui/compare/v1.51.8...v1.51.9) (2024-04-21)
+
+
+### Bug Fixes
+
+* **deps:** update dependency @adobe/helix-importer to v3.3.6 ([#348](https://github.com/adobe/helix-importer-ui/issues/348)) ([db6f3d3](https://github.com/adobe/helix-importer-ui/commit/db6f3d334b2c3d89ad3864f85494c465281b6611))
+
+## [1.51.8](https://github.com/adobe/helix-importer-ui/compare/v1.51.7...v1.51.8) (2024-04-12)
+
+
+### Bug Fixes
+
+* **deps:** update dependency @adobe/helix-importer to v3.3.5 ([#345](https://github.com/adobe/helix-importer-ui/issues/345)) ([0b3e189](https://github.com/adobe/helix-importer-ui/commit/0b3e18931761c63c281a59f1915315ecadfb25a7))
+
+## [1.51.7](https://github.com/adobe/helix-importer-ui/compare/v1.51.6...v1.51.7) (2024-04-07)
+
+
+### Bug Fixes
+
+* **deps:** update dependency @adobe/helix-importer to v3.3.4 ([#343](https://github.com/adobe/helix-importer-ui/issues/343)) ([a7e5edf](https://github.com/adobe/helix-importer-ui/commit/a7e5edf9805b5db66cfb6840ef31d901039c1a75))
+
+## [1.51.6](https://github.com/adobe/helix-importer-ui/compare/v1.51.5...v1.51.6) (2024-04-03)
+
+
+### Bug Fixes
+
+* **deps:** update dependency @adobe/helix-importer to v3.3.3 ([#341](https://github.com/adobe/helix-importer-ui/issues/341)) ([989a102](https://github.com/adobe/helix-importer-ui/commit/989a10202af814395b81cf0ee8a600563cdd35be))
+
+## [1.51.5](https://github.com/adobe/helix-importer-ui/compare/v1.51.4...v1.51.5) (2024-04-02)
+
+
+### Bug Fixes
+
+* **deps:** update adobe fixes ([#340](https://github.com/adobe/helix-importer-ui/issues/340)) ([e081206](https://github.com/adobe/helix-importer-ui/commit/e0812068b6c8c658e6ad237d3ba620c79bf66421))
+
+## [1.51.4](https://github.com/adobe/helix-importer-ui/compare/v1.51.3...v1.51.4) (2024-03-23)
+
+
+### Bug Fixes
+
+* **deps:** update dependency @adobe/remark-gridtables to v3.0.2 ([#338](https://github.com/adobe/helix-importer-ui/issues/338)) ([a882f7b](https://github.com/adobe/helix-importer-ui/commit/a882f7b08d2e84de3dbf00c5a9d0f015437da60c))
+
+## [1.51.3](https://github.com/adobe/helix-importer-ui/compare/v1.51.2...v1.51.3) (2024-03-20)
+
+
+### Bug Fixes
+
+* **deps:** update adobe fixes ([#336](https://github.com/adobe/helix-importer-ui/issues/336)) ([bf8108e](https://github.com/adobe/helix-importer-ui/commit/bf8108e92fbb41f64a0bf09f323e293ec636d695))
+
+## [1.51.2](https://github.com/adobe/helix-importer-ui/compare/v1.51.1...v1.51.2) (2024-03-15)
+
+
+### Bug Fixes
+
+* **deps:** update dependency @adobe/helix-importer to v3.3.0 ([#335](https://github.com/adobe/helix-importer-ui/issues/335)) ([b69b73e](https://github.com/adobe/helix-importer-ui/commit/b69b73ec62a8443e85142db8d97d5e202e0fdc00))
+
+## [1.51.1](https://github.com/adobe/helix-importer-ui/compare/v1.51.0...v1.51.1) (2024-03-13)
+
+
+### Bug Fixes
+
+* **deps:** update adobe fixes ([#333](https://github.com/adobe/helix-importer-ui/issues/333)) ([e8f9b40](https://github.com/adobe/helix-importer-ui/commit/e8f9b40c1c4635665817df9094545b869876d214))
+
+# [1.51.0](https://github.com/adobe/helix-importer-ui/compare/v1.50.15...v1.51.0) (2024-03-13)
+
+
+### Features
+
+* save as md & HTML ([#318](https://github.com/adobe/helix-importer-ui/issues/318)) ([c567395](https://github.com/adobe/helix-importer-ui/commit/c567395fd40a6051dccf394443bb5645930991c8))
+
 ## [1.50.15](https://github.com/adobe/helix-importer-ui/compare/v1.50.14...v1.50.15) (2024-02-17)
 
 
