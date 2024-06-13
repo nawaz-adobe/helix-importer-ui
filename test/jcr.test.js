@@ -110,6 +110,8 @@ const testData = {
         ],
         pageProperties: [
           'cq:template',
+          'jcr:primaryType',
+          'jcr:title',
           'sling:resourceType',
         ],
       },
@@ -171,6 +173,8 @@ const testData = {
         ],
         pageProperties: [
           'cq:template',
+          'jcr:primaryType',
+          'jcr:title',
           'sling:resourceType',
         ],
       },

@@ -20,7 +20,6 @@ const CUSTOM_SITE_NAME = CUSTOM_SITE_NAME_DEFAULT;
 // you can disable this by setting this to false
 const ADD_ASSET_TO_PACKAGE_DEFAULT = true;
 const ADD_ASSET_TO_PACKAGE = ADD_ASSET_TO_PACKAGE_DEFAULT;
-const NON_OVERWRITTEN_PAGE_PROPERTIES = ['jcr:primaryType', 'jcr:title', 'jcr:description'];
 
 // cache for pages and assets
 let jcrPages = [];
@@ -278,7 +277,7 @@ const getPageProperties = (xml) => {
   const localName = 'content';
   const jcrContent = doc.getElementsByTagNameNS(namespaceURI, localName)[0];
   // eslint-disable-next-line max-len
-  return jcrContent ? jcrContent.getAttributeNames().filter((name) => !NON_OVERWRITTEN_PAGE_PROPERTIES.includes(name)) : [];
+  return jcrContent ? jcrContent.getAttributeNames() : [];
 };
 
 const getPageContentChildren = (xml) => {
