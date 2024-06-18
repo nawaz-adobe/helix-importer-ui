@@ -402,6 +402,7 @@ const createImporter = () => {
     origin: config.origin,
     poll: !IS_BULK,
     importFileURL: config.fields['import-file-url'],
+    siteName: config.fields['site-name'],
   });
 };
 
@@ -421,6 +422,18 @@ const smartScroll = async (window) => {
     maxLoops -= 1;
     // eslint-disable-next-line no-await-in-loop
     await sleep(250);
+  }
+};
+
+const displaySiteNameConfig = (show) => {
+  const siteName = document.getElementById('site-name');
+  const siteNameLabel = document.getElementById('site-name-label');
+  if (show) {
+    siteName.classList.remove('hidden');
+    siteNameLabel.classList.remove('hidden');
+  } else {
+    siteName.classList.add('hidden');
+    siteNameLabel.classList.add('hidden');
   }
 };
 
@@ -631,8 +644,8 @@ const attachListeners = () => {
       } else {
         const frame = getContentFrame();
         frame.removeEventListener('transformation-complete', processNext);
-        const githubUrl = config.fields['github-project-url'];
-        await createJcrPackage(dirHandle, jcrPages, githubUrl);
+        const siteName = config.fields['site-name'];
+        await createJcrPackage(dirHandle, jcrPages, siteName);
         DOWNLOAD_IMPORT_REPORT_BUTTON.classList.remove('hidden');
         enableProcessButtons();
         toggleLoadingButton(IMPORT_BUTTON);
@@ -656,6 +669,10 @@ const attachListeners = () => {
     a.click();
   }));
 
+  SAVE_JCR_CHECKBOX.addEventListener('click', (event) => {
+    displaySiteNameConfig(!event.target.checked);
+  });
+
   if (SPTABS) {
     SPTABS.addEventListener('change', () => {
       // required for code to load in editors
@@ -673,6 +690,8 @@ const init = () => {
   config.fields = initOptionFields(CONFIG_PARENT_SELECTOR);
 
   createImporter();
+
+  displaySiteNameConfig(SAVE_JCR_CHECKBOX.checked);
 
   if (!IS_BULK) setupUI();
   attachListeners();
