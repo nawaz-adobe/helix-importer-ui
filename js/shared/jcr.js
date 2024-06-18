@@ -21,27 +21,27 @@ const init = () => {
   jcrAssets = [];
 };
 
-export const loadComponents = async (projectUrl) => {
+export const loadComponents = async (config) => {
   const components = {};
-  if (projectUrl) {
+  if (config.origin) {
     const [
       componentModels, componentsDefinition, componentFilters,
     ] = await Promise.all([
-      fetch(`${projectUrl}/component-models.json`).then((res) => {
+      fetch(`${config.origin}/component-models.json`).then((res) => {
         if (!res.ok) {
           throw new Error(`Failed to fetch component-models.json: ${res.status}`);
         } else {
           return res.text();
         }
       }),
-      fetch(`${projectUrl}/component-definition.json`).then((res) => {
+      fetch(`${config.origin}/component-definition.json`).then((res) => {
         if (!res.ok) {
           throw new Error(`Failed to fetch component-definition.json: ${res.status}`);
         } else {
           return res.text();
         }
       }),
-      fetch(`${projectUrl}/component-filters.json`).then((res) => {
+      fetch(`${config.origin}/component-filters.json`).then((res) => {
         if (!res.ok) {
           throw new Error(`Failed to fetch component-filters.json: ${res.status}`);
         } else {

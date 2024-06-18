@@ -402,7 +402,6 @@ const createImporter = () => {
     origin: config.origin,
     poll: !IS_BULK,
     importFileURL: config.fields['import-file-url'],
-    githubUrl: config.fields['github-project-url'],
   });
 };
 
@@ -422,18 +421,6 @@ const smartScroll = async (window) => {
     maxLoops -= 1;
     // eslint-disable-next-line no-await-in-loop
     await sleep(250);
-  }
-};
-
-const displayGithubConfig = (show) => {
-  const githubProjectUrl = document.getElementById('github-project-url');
-  const githubProjectUrlLabel = document.getElementById('github-project-url-label');
-  if (show) {
-    githubProjectUrl.classList.remove('hidden');
-    githubProjectUrlLabel.classList.remove('hidden');
-  } else {
-    githubProjectUrl.classList.add('hidden');
-    githubProjectUrlLabel.classList.add('hidden');
   }
 };
 
@@ -669,10 +656,6 @@ const attachListeners = () => {
     a.click();
   }));
 
-  SAVE_JCR_CHECKBOX.addEventListener('click', (event) => {
-    displayGithubConfig(!event.target.checked);
-  });
-
   if (SPTABS) {
     SPTABS.addEventListener('change', () => {
       // required for code to load in editors
@@ -690,8 +673,6 @@ const init = () => {
   config.fields = initOptionFields(CONFIG_PARENT_SELECTOR);
 
   createImporter();
-
-  displayGithubConfig(SAVE_JCR_CHECKBOX.checked);
 
   if (!IS_BULK) setupUI();
   attachListeners();
