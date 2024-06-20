@@ -56,6 +56,11 @@ export const loadComponents = async (config) => {
   return components;
 };
 
+/**
+ * Create a valid node name label out of an arbitrary string
+ * @param {string} siteNameConfig the site name configuration
+ * @returns string which can be used as a JCR node name
+ */
 const getSiteName = (siteNameConfig) => {
   const labelCharMapping = ['_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_',
     '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_',
