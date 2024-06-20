@@ -405,7 +405,7 @@ const getFilterXml = async (pages, projectUrl) => {
   const pageFilters = jcrPages.reduce((acc, page) => {
     const propertiesFilter = page.pageProperties.map((prop) => `<include pattern='${page.jcrPath}/jcr:content/${prop}' matchProperties='true'/>`).join('\n');
     const childrenFilter = page.pageContentChildren.map((child) => `<filter root='${page.jcrPath}/jcr:content/${child}'/>`).join('\n');
-    return `${acc}<filter root='${page.jcrPath}/jcr:content'>\n${propertiesFilter}\n</filter>${childrenFilter}\n`;
+    return `${acc}<filter root='${page.jcrPath}/jcr:content'>\n${propertiesFilter}\n</filter>\n${childrenFilter}\n`;
   }, '');
 
   const jcrAssetPaths = await getJcrAssetPaths(pages, projectUrl);
