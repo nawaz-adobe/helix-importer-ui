@@ -295,11 +295,35 @@ export const getProcessedJcr = async (xml, pageUrl, projectUrl) => {
   return serializer.serializeToString(doc);
 };
 
+const getPageProperties = (xml) => {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(xml, 'text/xml');
+  // get the jcr:content node properties
+  const namespaceURI = 'http://www.jcp.org/jcr/1.0';
+  const localName = 'content';
+  const jcrContent = doc.getElementsByTagNameNS(namespaceURI, localName)[0];
+  // eslint-disable-next-line max-len
+  return jcrContent ? jcrContent.getAttributeNames() : [];
+};
+
+const getPageContentChildren = (xml) => {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(xml, 'text/xml');
+  // get the names of the jcr:content node children
+  const namespaceURI = 'http://www.jcp.org/jcr/1.0';
+  const localName = 'content';
+  const jcrContent = doc.getElementsByTagNameNS(namespaceURI, localName)[0];
+  const children = jcrContent?.children;
+  return children ? Array.from(children).map((child) => child.tagName) : [];
+};
+
 export const getJcrPages = async (pages, projectUrl) => {
   if (jcrPages.length === 0) {
     jcrPages = Promise.all(pages.map(async (page) => ({
       path: page.path,
       sourceXml: page.data,
+      pageProperties: getPageProperties(page.data),
+      pageContentChildren: getPageContentChildren(page.data),
       processedXml: await getProcessedJcr(page.data, page.url, projectUrl),
       jcrPath: getJcrPagePath(page.path, projectUrl),
       contentXmlPath: `jcr_root${getJcrPagePath(page.path, projectUrl)}/.content.xml`,
@@ -378,8 +402,11 @@ const getEmptyAncestorPages = (pages) => {
 const getFilterXml = async (pages, projectUrl) => {
   jcrPages = await getJcrPages(pages, projectUrl);
 
-  const pageFilters = jcrPages.reduce((acc, page) => `${acc}
-    <filter root='${page.jcrPath}/jcr:content' mode='update_properties'/>\n`, '');
+  const pageFilters = jcrPages.reduce((acc, page) => {
+    const propertiesFilter = page.pageProperties.map((prop) => `<include pattern='${page.jcrPath}/jcr:content/${prop}' matchProperties='true'/>`).join('\n');
+    const childrenFilter = page.pageContentChildren.map((child) => `<filter root='${page.jcrPath}/jcr:content/${child}'/>`).join('\n');
+    return `${acc}<filter root='${page.jcrPath}/jcr:content'>\n${propertiesFilter}\n</filter>${childrenFilter}\n`;
+  }, '');
 
   const jcrAssetPaths = await getJcrAssetPaths(pages, projectUrl);
   const assetFilters = jcrAssetPaths.reduce((acc, path) => `${acc}<filter root='${path}'/>\n`, '');

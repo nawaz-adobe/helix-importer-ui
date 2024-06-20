@@ -105,6 +105,15 @@ const testData = {
       expected: {
         jcrPath: '/content/repo/1/2/page',
         contentXmlPath: 'jcr_root/content/repo/1/2/page/.content.xml',
+        pageContentChildren: [
+          'root',
+        ],
+        pageProperties: [
+          'cq:template',
+          'jcr:primaryType',
+          'jcr:title',
+          'sling:resourceType',
+        ],
       },
     },
     {
@@ -159,6 +168,15 @@ const testData = {
       expected: {
         jcrPath: '/content/repo/3/4/page',
         contentXmlPath: 'jcr_root/content/repo/3/4/page/.content.xml',
+        pageContentChildren: [
+          'root',
+        ],
+        pageProperties: [
+          'cq:template',
+          'jcr:primaryType',
+          'jcr:title',
+          'sling:resourceType',
+        ],
       },
     },
   ],
@@ -237,6 +255,8 @@ describe('JCR Importer', () => {
       jcrPath: page.expected.jcrPath,
       contentXmlPath: page.expected.contentXmlPath,
       url: page.url,
+      pageContentChildren: page.expected.pageContentChildren,
+      pageProperties: page.expected.pageProperties,
     }));
     const actualPages = await getJcrPages(testPages, testData.projectUrl);
     assert.deepEqual(actualPages, expectedPages, 'JCR pages are not as expected');
