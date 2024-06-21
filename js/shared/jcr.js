@@ -12,6 +12,15 @@
 /* global JSZip */
 import { saveFile } from './filesystem.js';
 
+// By default, the site name is the GitHub repository name:
+// you can force a different site name as a string, e.g. 'my-site'
+const CUSTOM_SITE_NAME_DEFAULT = undefined;
+const CUSTOM_SITE_NAME = CUSTOM_SITE_NAME_DEFAULT;
+// By default, the page assets are added to the package:
+// you can disable this by setting this to false
+const ADD_ASSET_TO_PACKAGE_DEFAULT = true;
+const ADD_ASSET_TO_PACKAGE = ADD_ASSET_TO_PACKAGE_DEFAULT;
+
 // cache for pages and assets
 let jcrPages = [];
 let jcrAssets = [];
@@ -208,7 +217,7 @@ const getAsset = (fileReference, pageUrl, siteName) => {
     url = new URL(`${host}${fileReference}`);
     jcrPath = getJcrAssetPath(url, siteName);
     processedFileRef = jcrPath;
-    add = true;
+    add = ADD_ASSET_TO_PACKAGE;
   } else if (fileReference.startsWith('/')) {
     // absolute fileReference
     url = new URL(`${host}${fileReference}`);
@@ -270,16 +279,6 @@ const getResourcePaths = (resources, isAsset) => resources
   })
   .filter((path) => path !== null);
 
-const getFilterXml = (jcrPaths) => {
-  const filters = jcrPaths.reduce((acc, path) => `${acc}<filter root='${path}'/>\n`, '');
-  const filterXml = `<?xml version='1.0' encoding='UTF-8'?>
-    <workspaceFilter version='1.0'>
-      ${filters}
-    </workspaceFilter>`;
-  const filterXmlPath = 'META-INF/vault/filter.xml';
-  return { filterXmlPath, filterXml };
-};
-
 const getPropertiesXml = (packageName) => {
   const author = 'anonymous';
   const now = new Date().toISOString();
@@ -333,11 +332,35 @@ export const getProcessedJcr = async (xml, pageUrl, siteName) => {
   return serializer.serializeToString(doc);
 };
 
+const getPageProperties = (xml) => {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(xml, 'text/xml');
+  // get the jcr:content node properties
+  const namespaceURI = 'http://www.jcp.org/jcr/1.0';
+  const localName = 'content';
+  const jcrContent = doc.getElementsByTagNameNS(namespaceURI, localName)[0];
+  // eslint-disable-next-line max-len
+  return jcrContent ? jcrContent.getAttributeNames() : [];
+};
+
+const getPageContentChildren = (xml) => {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(xml, 'text/xml');
+  // get the names of the jcr:content node children
+  const namespaceURI = 'http://www.jcp.org/jcr/1.0';
+  const localName = 'content';
+  const jcrContent = doc.getElementsByTagNameNS(namespaceURI, localName)[0];
+  const children = jcrContent?.children;
+  return children ? Array.from(children).map((child) => child.tagName) : [];
+};
+
 export const getJcrPages = async (pages, siteName) => {
   if (jcrPages.length === 0) {
     jcrPages = Promise.all(pages.map(async (page) => ({
       path: page.path,
       sourceXml: page.data,
+      pageProperties: getPageProperties(page.data),
+      pageContentChildren: getPageContentChildren(page.data),
       processedXml: await getProcessedJcr(page.data, page.url, siteName),
       jcrPath: getJcrPagePath(page.path, siteName),
       contentXmlPath: `jcr_root${getJcrPagePath(page.path, siteName)}/.content.xml`,
@@ -378,9 +401,64 @@ export const getJcrPaths = async (pages, siteName) => {
   return jcrPaths;
 };
 
+export const getJcrAssetPaths = async (pages, siteName) => {
+  jcrAssets = await getJcrAssets(pages, siteName);
+  const jcrPaths = [];
+  jcrPaths.push(...getResourcePaths(jcrAssets, true));
+  return jcrPaths;
+};
+
+const getEmptyAncestorPages = (pages) => {
+  const jcrPaths = pages.map((page) => page.jcrPath);
+  const emptyAncestors = [];
+  const ancestorXml = `<?xml version="1.0" encoding="UTF-8"?>
+    <jcr:root xmlns:jcr="http://www.jcp.org/jcr/1.0" xmlns:nt="http://www.jcp.org/jcr/nt/1.0" xmlns:cq="http://www.day.com/jcr/cq/1.0" xmlns:sling="http://sling.apache.org/jcr/sling/1.0" jcr:primaryType="cq:Page">
+        <jcr:content cq:template="/libs/core/franklin/templates/page" jcr:primaryType="cq:PageContent" sling:resourceType="core/franklin/components/page/v1/page"/>
+    </jcr:root>`;
+
+  jcrPaths.forEach((pagePath) => {
+    const pathSegments = pagePath.split('/');
+    let ancestorPath = '/content';
+
+    for (let i = 2; i < pathSegments.length - 1; i += 1) {
+      ancestorPath += `/${pathSegments[i]}`;
+
+      if (!jcrPaths.includes(ancestorPath)) {
+        emptyAncestors.push({
+          jcrPath: ancestorPath,
+          contentXmlPath: `jcr_root${ancestorPath}/.content.xml`,
+          processedXml: ancestorXml,
+        });
+      }
+    }
+  });
+
+  return emptyAncestors;
+};
+
+const getFilterXml = async (pages, siteName) => {
+  jcrPages = await getJcrPages(pages, siteName);
+
+  const pageFilters = jcrPages.reduce((acc, page) => {
+    const propertiesFilter = page.pageProperties.map((prop) => `<include pattern='${page.jcrPath}/jcr:content/${prop}' matchProperties='true'/>`).join('\n');
+    const childrenFilter = page.pageContentChildren.map((child) => `<filter root='${page.jcrPath}/jcr:content/${child}'/>`).join('\n');
+    return `${acc}<filter root='${page.jcrPath}/jcr:content'>\n${propertiesFilter}\n</filter>\n${childrenFilter}\n`;
+  }, '');
+
+  const jcrAssetPaths = await getJcrAssetPaths(pages, siteName);
+  const assetFilters = jcrAssetPaths.reduce((acc, path) => `${acc}<filter root='${path}'/>\n`, '');
+
+  const filterXml = `<?xml version='1.0' encoding='UTF-8'?>
+    <workspaceFilter version='1.0'>
+      ${pageFilters}
+      ${assetFilters}
+    </workspaceFilter>`;
+  const filterXmlPath = 'META-INF/vault/filter.xml';
+  return { filterXmlPath, filterXml };
+};
+
 const addFilterXml = async (pages, siteName, dirHandle, prefix, zip) => {
-  const jcrPaths = await getJcrPaths(pages, siteName);
-  const { filterXmlPath, filterXml } = getFilterXml(jcrPaths);
+  const { filterXmlPath, filterXml } = await getFilterXml(pages, siteName);
   zip.file(filterXmlPath, filterXml);
   await saveFile(dirHandle, `${prefix}/${filterXmlPath}`, filterXml);
 };
@@ -402,6 +480,14 @@ export const createJcrPackage = async (dirHandle, pages, siteName) => {
   jcrPages = await getJcrPages(pages, siteName);
   for (let i = 0; i < jcrPages.length; i += 1) {
     const page = jcrPages[i];
+    // eslint-disable-next-line no-await-in-loop
+    await addPage(page, dirHandle, prefix, zip);
+  }
+
+  // add the empty ancestor pages
+  const emptyAncestorPages = getEmptyAncestorPages(jcrPages);
+  for (let i = 0; i < emptyAncestorPages.length; i += 1) {
+    const page = emptyAncestorPages[i];
     // eslint-disable-next-line no-await-in-loop
     await addPage(page, dirHandle, prefix, zip);
   }
