@@ -158,7 +158,7 @@ export default class PollImporter {
           result.filename = `${path}.docx`;
         });
       } else {
-        const components = await loadComponents(this.config.githubUrl);
+        const components = await loadComponents(this.config);
         const out = await WebImporter.html2jcr(
           url,
           documentClone,

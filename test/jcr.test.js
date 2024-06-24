@@ -52,7 +52,7 @@ const mockFetch = (url, imagePath, contentType) => {
 
 // test cases and expected results
 const testData = {
-  projectUrl: 'https://raw.githubusercontent.com/user/repo/main',
+  siteName: 'repo',
   pages: [
     {
       url: 'https://www.brand.com/1/2/page.html',
@@ -223,12 +223,12 @@ describe('JCR Importer', () => {
     mockFetch('https://www.mysite.com/a/b/media_2.png?param1=value1&param2=value2', 'test/resources/adobe-logo.png', 'image/png');
   });
   it('should return the correct JCR package name', () => {
-    assert.deepEqual(getPackageName(testPages, testData.projectUrl), 'repo', 'Package name is not as expected');
+    assert.deepEqual(getPackageName(testPages, testData.siteName), 'repo', 'Package name is not as expected');
   });
 
   it('should return the correct JCR processed fileReference', () => {
-    const testGetProcessedFileRef = (projectUrl, pageUrl, fileReference, expected) => {
-      const result = getProcessedFileRef(fileReference, pageUrl, projectUrl);
+    const testGetProcessedFileRef = (siteName, pageUrl, fileReference, expected) => {
+      const result = getProcessedFileRef(fileReference, pageUrl, siteName);
       assert.equal(result, expected, `Processed file reference is not as expected for ${fileReference}`);
     };
 
@@ -237,7 +237,7 @@ describe('JCR Importer', () => {
         const { fileReference, expected } = image;
         const pageUrl = page.url;
         // eslint-disable-next-line max-len
-        testGetProcessedFileRef(testData.projectUrl, pageUrl, fileReference, expected.processedFileRef);
+        testGetProcessedFileRef(testData.siteName, pageUrl, fileReference, expected.processedFileRef);
       });
     });
   });
@@ -258,7 +258,7 @@ describe('JCR Importer', () => {
       pageContentChildren: page.expected.pageContentChildren,
       pageProperties: page.expected.pageProperties,
     }));
-    const actualPages = await getJcrPages(testPages, testData.projectUrl);
+    const actualPages = await getJcrPages(testPages, testData.siteName);
     assert.deepEqual(actualPages, expectedPages, 'JCR pages are not as expected');
   });
 
@@ -267,13 +267,13 @@ describe('JCR Importer', () => {
       .flatMap((page) => page.images)
       .map((image) => (image.expected))
       .filter((image) => image.add);
-    const actualAssets = await getJcrAssets(testPages, testData.projectUrl);
+    const actualAssets = await getJcrAssets(testPages, testData.siteName);
     assert.deepEqual(actualAssets, expectedAssets, 'JCR assets are not as expected');
   });
 
   it('should return the correct JCR paths', async () => {
     const expectedPaths = testData.expectedJcrPaths;
-    const actualPaths = await getJcrPaths(testPages, testData.projectUrl);
+    const actualPaths = await getJcrPaths(testPages, testData.siteName);
     assert.deepEqual(actualPaths, expectedPaths, 'JCR paths are not as expected');
   });
 });

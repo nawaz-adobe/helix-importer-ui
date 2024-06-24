@@ -402,7 +402,7 @@ const createImporter = () => {
     origin: config.origin,
     poll: !IS_BULK,
     importFileURL: config.fields['import-file-url'],
-    githubUrl: config.fields['github-project-url'],
+    siteName: config.fields['site-name'],
   });
 };
 
@@ -425,15 +425,15 @@ const smartScroll = async (window) => {
   }
 };
 
-const displayGithubConfig = (show) => {
-  const githubProjectUrl = document.getElementById('github-project-url');
-  const githubProjectUrlLabel = document.getElementById('github-project-url-label');
+const displaySiteNameConfig = (show) => {
+  const siteName = document.getElementById('site-name');
+  const siteNameLabel = document.getElementById('site-name-label');
   if (show) {
-    githubProjectUrl.classList.remove('hidden');
-    githubProjectUrlLabel.classList.remove('hidden');
+    siteName.classList.remove('hidden');
+    siteNameLabel.classList.remove('hidden');
   } else {
-    githubProjectUrl.classList.add('hidden');
-    githubProjectUrlLabel.classList.add('hidden');
+    siteName.classList.add('hidden');
+    siteNameLabel.classList.add('hidden');
   }
 };
 
@@ -644,8 +644,8 @@ const attachListeners = () => {
       } else {
         const frame = getContentFrame();
         frame.removeEventListener('transformation-complete', processNext);
-        const githubUrl = config.fields['github-project-url'];
-        await createJcrPackage(dirHandle, jcrPages, githubUrl);
+        const siteName = config.fields['site-name'];
+        await createJcrPackage(dirHandle, jcrPages, siteName);
         DOWNLOAD_IMPORT_REPORT_BUTTON.classList.remove('hidden');
         enableProcessButtons();
         toggleLoadingButton(IMPORT_BUTTON);
@@ -670,7 +670,7 @@ const attachListeners = () => {
   }));
 
   SAVE_JCR_CHECKBOX.addEventListener('click', (event) => {
-    displayGithubConfig(!event.target.checked);
+    displaySiteNameConfig(!event.target.checked);
   });
 
   if (SPTABS) {
@@ -691,7 +691,7 @@ const init = () => {
 
   createImporter();
 
-  displayGithubConfig(SAVE_JCR_CHECKBOX.checked);
+  displaySiteNameConfig(SAVE_JCR_CHECKBOX.checked);
 
   if (!IS_BULK) setupUI();
   attachListeners();
