@@ -12,10 +12,6 @@
 /* global JSZip */
 import { saveFile } from './filesystem.js';
 
-// By default, the site name is the GitHub repository name:
-// you can force a different site name as a string, e.g. 'my-site'
-const CUSTOM_SITE_NAME_DEFAULT = undefined;
-const CUSTOM_SITE_NAME = CUSTOM_SITE_NAME_DEFAULT;
 // By default, the page assets are added to the package:
 // you can disable this by setting this to false
 const ADD_ASSET_TO_PACKAGE_DEFAULT = true;
@@ -310,6 +306,12 @@ const getPropertiesXml = (packageName) => {
 export const getProcessedJcr = async (xml, pageUrl, siteName) => {
   const parser = new DOMParser();
   const doc = parser.parseFromString(xml, 'text/xml');
+  // if parsing fails, log the error
+  if (doc.getElementsByTagName('parsererror').length > 0) {
+    // eslint-disable-next-line no-console
+    console.error('Error parsing the XML document for the page ', pageUrl);
+    return xml;
+  }
   const images = doc.querySelectorAll('[fileReference]');
   for (let i = 0; i < images.length; i += 1) {
     const image = images[i];
