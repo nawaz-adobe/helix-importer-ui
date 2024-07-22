@@ -171,7 +171,7 @@ const getAssetXml = (mimeType) => `<?xml version="1.0" encoding="UTF-8"?>
 // Fetches the asset blob and mime type
 const fetchAssetData = async (asset) => {
   if (asset.url) {
-    const { blob, mimeType } = await fetch(asset.url.href)
+    const assetResp = await fetch(asset.url.href)
       .then(async (res) => {
         if (!res.ok) {
           // eslint-disable-next-line no-console
@@ -182,10 +182,14 @@ const fetchAssetData = async (asset) => {
       })
       .catch((error) => {
         // eslint-disable-next-line no-console
-        console.error(`Fetch failed with error: ${error}`);
+        console.error(`Fetch ${asset.url.href} failed with error: ${error}`);
+        return null;
       });
-    asset.blob = blob;
-    asset.mimeType = mimeType || getMimeTypeFromExtension(asset.url.pathname.split('.').pop());
+    if (assetResp) {
+      const { blob, mimeType } = assetResp;
+      asset.blob = blob;
+      asset.mimeType = mimeType || getMimeTypeFromExtension(asset.url.pathname.split('.').pop());
+    }
   }
 };
 
