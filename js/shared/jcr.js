@@ -189,7 +189,9 @@ const fetchAssetData = async (asset) => {
       const { blob, mimeType } = assetResp;
       asset.blob = blob;
       asset.mimeType = mimeType || getMimeTypeFromExtension(asset.url.pathname.split('.').pop());
+      return true;
     }
+    return false;
   }
 };
 
@@ -248,21 +250,22 @@ export const getProcessedFileRef = (fileReference, pageUrl, siteName) => {
 };
 
 const addAsset = async (asset, dirHandle, prefix, zip) => {
-  // get asset blob and mime type
-  await fetchAssetData(asset);
+  // get asset blob and mime type, returns true if successful
+  if (await fetchAssetData(asset)) {
 
-  // add the image .content.xml file
-  const zipAssetPath = `jcr_root${asset.jcrPath}/.content.xml`;
-  const fileAssetPath = `${prefix}/${zipAssetPath}`;
-  const assetXml = getAssetXml(asset.mimeType);
-  await zip.file(zipAssetPath, assetXml);
-  await saveFile(dirHandle, fileAssetPath, assetXml);
+    // add the image .content.xml file
+    const zipAssetPath = `jcr_root${asset.jcrPath}/.content.xml`;
+    const fileAssetPath = `${prefix}/${zipAssetPath}`;
+    const assetXml = getAssetXml(asset.mimeType);
+    await zip.file(zipAssetPath, assetXml);
+    await saveFile(dirHandle, fileAssetPath, assetXml);
 
-  // add the image original file
-  const zipAssetOriginalPath = `jcr_root${asset.jcrPath}/_jcr_content/renditions/original`;
-  const fileAssetOriginalPath = `${prefix}/${zipAssetOriginalPath}`;
-  await zip.file(zipAssetOriginalPath, asset.blob);
-  await saveFile(dirHandle, fileAssetOriginalPath, asset.blob);
+    // add the image original file
+    const zipAssetOriginalPath = `jcr_root${asset.jcrPath}/_jcr_content/renditions/original`;
+    const fileAssetOriginalPath = `${prefix}/${zipAssetOriginalPath}`;
+    await zip.file(zipAssetOriginalPath, asset.blob);
+    await saveFile(dirHandle, fileAssetOriginalPath, asset.blob);
+  }
 };
 
 const addPage = async (page, dirHandle, prefix, zip) => {
