@@ -265,7 +265,9 @@ const addAsset = async (asset, dirHandle, prefix, zip) => {
     const fileAssetOriginalPath = `${prefix}/${zipAssetOriginalPath}`;
     await zip.file(zipAssetOriginalPath, asset.blob);
     await saveFile(dirHandle, fileAssetOriginalPath, asset.blob);
+    return true;
   }
+  return false;
 };
 
 const addPage = async (page, dirHandle, prefix, zip) => {
@@ -410,10 +412,9 @@ export const getJcrPaths = async (pages, siteName) => {
   return jcrPaths;
 };
 
-export const getJcrAssetPaths = async (pages, siteName) => {
-  jcrAssets = await getJcrAssets(pages, siteName);
+export const getJcrAssetPaths = async (assets, siteName) => {
   const jcrPaths = [];
-  jcrPaths.push(...getResourcePaths(jcrAssets, true));
+  jcrPaths.push(...getResourcePaths(assets, true));
   return jcrPaths;
 };
 
@@ -445,7 +446,7 @@ const getEmptyAncestorPages = (pages) => {
   return emptyAncestors;
 };
 
-const getFilterXml = async (pages, siteName) => {
+const getFilterXml = async (pages, assets, siteName) => {
   jcrPages = await getJcrPages(pages, siteName);
 
   const pageFilters = jcrPages.reduce((acc, page) => {
@@ -454,7 +455,7 @@ const getFilterXml = async (pages, siteName) => {
     return `${acc}<filter root='${page.jcrPath}/jcr:content'>\n${propertiesFilter}\n</filter>\n${childrenFilter}\n`;
   }, '');
 
-  const jcrAssetPaths = await getJcrAssetPaths(pages, siteName);
+  const jcrAssetPaths = await getJcrAssetPaths(assets, siteName);
   const assetFilters = jcrAssetPaths.reduce((acc, path) => `${acc}<filter root='${path}'/>\n`, '');
 
   const filterXml = `<?xml version='1.0' encoding='UTF-8'?>
@@ -466,8 +467,8 @@ const getFilterXml = async (pages, siteName) => {
   return { filterXmlPath, filterXml };
 };
 
-const addFilterXml = async (pages, siteName, dirHandle, prefix, zip) => {
-  const { filterXmlPath, filterXml } = await getFilterXml(pages, siteName);
+const addFilterXml = async (pages, assets, siteName, dirHandle, prefix, zip) => {
+  const { filterXmlPath, filterXml } = await getFilterXml(pages, assets, siteName);
   zip.file(filterXmlPath, filterXml);
   await saveFile(dirHandle, `${prefix}/${filterXmlPath}`, filterXml);
 };
@@ -503,14 +504,17 @@ export const createJcrPackage = async (dirHandle, pages, siteName) => {
 
   // add the assets
   jcrAssets = await getJcrAssets(pages, siteName);
+  const addedAssets = [];
   for (let i = 0; i < jcrAssets.length; i += 1) {
     const asset = jcrAssets[i];
     // eslint-disable-next-line no-await-in-loop
-    await addAsset(asset, dirHandle, prefix, zip);
+    if (await addAsset(asset, dirHandle, prefix, zip)) {
+      addedAssets.push(asset);
+    };
   }
 
   // add the filter.xml file
-  await addFilterXml(pages, siteName, dirHandle, prefix, zip);
+  await addFilterXml(pages, addedAssets, siteName, dirHandle, prefix, zip);
 
   // add the properties.xml file
   await addPropertiesXml(dirHandle, prefix, zip, pages, packageName);
