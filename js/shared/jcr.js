@@ -17,6 +17,9 @@ import { saveFile } from './filesystem.js';
 const ADD_ASSET_TO_PACKAGE_DEFAULT = true;
 const ADD_ASSET_TO_PACKAGE = ADD_ASSET_TO_PACKAGE_DEFAULT;
 
+const IMAGE_URL_REGEX = /https?:\/\/.*\.(jpg|jpeg|png|gif|bmp|svg|webp|tiff|ico)(\?.*)?$/i;
+
+
 // cache for pages and assets
 let jcrPages = [];
 let jcrAssets = [];
@@ -208,7 +211,7 @@ const getAsset = (fileReference, pageUrl, siteName) => {
   if (fileReference.startsWith('http')) {
     // external fileReference
     url = new URL(fileReference);
-    if (url.origin === host) {
+    if (url.origin === host || url.origin === 'http://localhost:3001') {
       // the asset is hosted on the same server
       jcrPath = getJcrAssetPath(url, siteName);
       processedFileRef = jcrPath;
@@ -311,6 +314,25 @@ const getPropertiesXml = (packageName) => {
   return { propXmlPath, propXml };
 };
 
+const collectImageReferences = (doc) => {
+   // get all images with a fileReference attribute
+   const images = [...doc.querySelectorAll('[fileReference]')].map((image) => { return { image, attribute: 'fileReference' }});
+  
+   // get all other images inside blocks
+   const blocks = [...doc.querySelectorAll('*')].filter((el) => el.getAttribute('sling:resourceType') === 'core/franklin/components/block/v1/block');
+   blocks.forEach((block) => {
+     for (let attr of block.attributes) {
+       if (attr.name === 'image' || attr.name.endsWith('_image') || IMAGE_URL_REGEX.test(attr.value)) {
+         images.push({ image: block, attribute: attr.name });
+         break;
+       }
+     }
+   });
+
+   return images;
+}
+
+
 // Updates the asset references in the JCR XML
 export const getProcessedJcr = async (xml, pageUrl, siteName) => {
   const parser = new DOMParser();
@@ -321,10 +343,11 @@ export const getProcessedJcr = async (xml, pageUrl, siteName) => {
     console.error('Error parsing the XML document for the page ', pageUrl);
     return xml;
   }
-  const images = doc.querySelectorAll('[fileReference]');
+ 
+  const images = collectImageReferences(doc);
   for (let i = 0; i < images.length; i += 1) {
-    const image = images[i];
-    const fileReference = image.getAttribute('fileReference');
+    const {image, attribute} = images[i];
+    const fileReference = image.getAttribute(attribute);
     const processedFileRef = getProcessedFileRef(fileReference, pageUrl, siteName);
     if (fileReference.startsWith('http')) {
       // External fileReference: add the asset mime type to the page XML
@@ -333,11 +356,11 @@ export const getProcessedJcr = async (xml, pageUrl, siteName) => {
         // eslint-disable-next-line no-await-in-loop
         await fetchAssetData(asset);
         if (asset.mimeType && asset.mimeType !== '') {
-          image.setAttribute('fileReferenceMimeType', asset.mimeType);
+          image.setAttribute(`${attribute}MimeType`, asset.mimeType);
         }
       }
     }
-    image.setAttribute('fileReference', processedFileRef);
+    image.setAttribute(attribute, processedFileRef);
   }
   const serializer = new XMLSerializer();
   return serializer.serializeToString(doc);
@@ -388,10 +411,10 @@ export const getJcrAssets = async (pages, siteName) => {
       const page = jcrPages[i];
       const parser = new DOMParser();
       const doc = parser.parseFromString(page.sourceXml, 'text/xml');
-      const images = doc.querySelectorAll('[fileReference]');
+      const images = collectImageReferences(doc);
       for (let j = 0; j < images.length; j += 1) {
-        const image = images[j];
-        const fileReference = image.getAttribute('fileReference');
+        const { image, attribute } = images[j];
+        const fileReference = image.getAttribute(attribute);
         const asset = getAsset(fileReference, page.url, siteName);
         // add if not a duplicate
         if (asset && asset.add && !jcrAssets.find((a) => a.jcrPath === asset.jcrPath)) {
