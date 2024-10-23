@@ -134,14 +134,18 @@ const getJcrAssetPath = (assetUrl, siteNameConfig) => {
   // add the query parameters to the path as _name1value1_name2value2
   const params = assetUrl.searchParams;
   const extension = (assetUrl.pathname.includes('.')) ? `.${assetUrl.pathname.split('.').pop()}` : '';
-  const path = assetUrl.pathname.replace(extension, '');
+  let path = assetUrl.pathname.replace(extension, '');
   if (path.startsWith('/content/dam/')) {
     // replace the 3rd token with the site name
     const tokens = path.split('/');
     tokens.splice(3, 1, siteName);
     return `${tokens.join('/')}${extension}`;
   }
-  const suffix = Array.from(params.keys()).map((key) => `_${key}${params.get(key)}`).join('');
+  // const suffix = Array.from(params.keys()).map((key) => `_${key}${params.get(key)}`).join('');
+  const suffix = '';
+  // replace media_ with media1_ in path to avoid conflicts with the media folder
+  path = path.replace('/media_', '/media1_');
+
   return `/content/dam/${siteName}${path}${suffix}${extension}`;
 };
 
