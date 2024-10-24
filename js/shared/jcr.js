@@ -215,7 +215,7 @@ const getAsset = (fileReference, pageUrl, siteName) => {
   if (fileReference.startsWith('http')) {
     // external fileReference
     url = new URL(fileReference);
-    if (url.origin === host || url.origin === 'http://localhost:3001') {
+    if (url.origin === host || url.origin === 'http://localhost:3001' || url.origin === 'https://localhost:3001') {
       // the asset is hosted on the same server
       jcrPath = getJcrAssetPath(url, siteName);
       processedFileRef = jcrPath;
